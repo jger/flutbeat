@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090D15"/>
+      <stop offset="100%" stop-color="#141C2A"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="700" height="450" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="350" y="38" text-anchor="middle" fill="#00E5FF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="900" letter-spacing="1">
+    EINTHOVEN 3-LEAD ELECTRODE PLACEMENT (AD8232)
+  </text>
+  <text x="350" y="60" text-anchor="middle" fill="#94A3B8" font-family="sans-serif" font-size="12">
+    Standard Lead II Cardiac Vector Configuration for Single-Lead Monitoring
+  </text>
+
+  <!-- Torso Outline -->
+  <g transform="translate(180, 80)">
+    <!-- Shoulders & Chest Outline -->
+    <path d="M 170,30 C 130,30 110,50 80,75 C 50,100 30,130 30,170 C 30,220 50,260 60,300 L 280,300 C 290,260 310,220 310,170 C 310,130 290,100 260,75 C 230,50 210,30 170,30 Z" 
+          fill="#1E293B" stroke="#334155" stroke-width="2"/>
+    
+    <!-- Neck -->
+    <path d="M 140,30 L 140,0 L 200,0 L 200,30 Z" fill="#1E293B" stroke="#334155" stroke-width="2"/>
+
+    <!-- Einthoven Triangle Dashed Lines -->
+    <polygon points="100,100 240,100 110,240" fill="#00FF88" fill-opacity="0.04" stroke="#00FF88" stroke-width="1.5" stroke-dasharray="6,4"/>
+    <text x="170" y="190" text-anchor="middle" fill="#00FF88" font-family="sans-serif" font-size="12" font-weight="bold">Lead II Vector</text>
+
+    <!-- Electrode: RA (Right Arm) -->
+    <circle cx="100" cy="100" r="14" fill="#EF4444" stroke="#FFFFFF" stroke-width="2"/>
+    <text x="100" y="104" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="10" font-weight="bold">RA</text>
+
+    <!-- Electrode: LA (Left Arm) -->
+    <circle cx="240" cy="100" r="14" fill="#EAB308" stroke="#FFFFFF" stroke-width="2"/>
+    <text x="240" y="104" text-anchor="middle" fill="#000000" font-family="sans-serif" font-size="10" font-weight="bold">LA</text>
+
+    <!-- Electrode: RL (Right Leg / Lower Rib Ground) -->
+    <circle cx="110" cy="240" r="14" fill="#10B981" stroke="#FFFFFF" stroke-width="2"/>
+    <text x="110" y="244" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="10" font-weight="bold">RL</text>
+  </g>
+
+  <!-- Side Callout Cards -->
+  <!-- RA Callout -->
+  <g transform="translate(40, 150)">
+    <rect width="180" height="52" rx="8" fill="#1E1E28" stroke="#EF4444" stroke-width="1.2"/>
+    <text x="12" y="22" fill="#EF4444" font-family="sans-serif" font-size="12" font-weight="bold">RA (Red / Negative)</text>
+    <text x="12" y="38" fill="#CBD5E1" font-family="sans-serif" font-size="10">Right collarbone / chest</text>
+  </g>
+
+  <!-- LA Callout -->
+  <g transform="translate(480, 150)">
+    <rect width="180" height="52" rx="8" fill="#1E1E28" stroke="#EAB308" stroke-width="1.2"/>
+    <text x="12" y="22" fill="#EAB308" font-family="sans-serif" font-size="12" font-weight="bold">LA (Yellow / Positive)</text>
+    <text x="12" y="38" fill="#CBD5E1" font-family="sans-serif" font-size="10">Left collarbone / chest</text>
+  </g>
+
+  <!-- RL Callout -->
+  <g transform="translate(40, 310)">
+    <rect width="180" height="52" rx="8" fill="#1E1E28" stroke="#10B981" stroke-width="1.2"/>
+    <text x="12" y="22" fill="#10B981" font-family="sans-serif" font-size="12" font-weight="bold">RL (Green / Reference)</text>
+    <text x="12" y="38" fill="#CBD5E1" font-family="sans-serif" font-size="10">Lower right abdomen / rib</text>
+  </g>
+
+  <!-- Note -->
+  <g transform="translate(480, 310)">
+    <rect width="180" height="52" rx="8" fill="#1E1E28" stroke="#38BDF8" stroke-width="1.2"/>
+    <text x="12" y="22" fill="#38BDF8" font-family="sans-serif" font-size="12" font-weight="bold">Lead II Polarity</text>
+    <text x="12" y="38" fill="#CBD5E1" font-family="monospace" font-size="10">V_Lead_II = LA - RA</text>
+  </g>
+</svg>
+

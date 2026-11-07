@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090D15"/>
+      <stop offset="100%" stop-color="#141C2A"/>
+    </linearGradient>
+    <linearGradient id="ad8232-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C53030"/>
+      <stop offset="100%" stop-color="#9B2C2C"/>
+    </linearGradient>
+    <linearGradient id="d1mini-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#172554"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="500" fill="url(#bg)"/>
+
+  <!-- Title & Subtitle -->
+  <text x="450" y="42" text-anchor="middle" fill="#00FF88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="900" letter-spacing="1">
+    FLUTBEAT — AD8232 ECG SENSOR TO WEMOS D1 MINI (ESP8266)
+  </text>
+  <text x="450" y="66" text-anchor="middle" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12">
+    250 Hz Deterministic Analog Sampling (A0) with Active Lead-Off Detection (LO+ / LO-)
+  </text>
+
+  <!-- ==================== AD8232 Module ==================== -->
+  <g transform="translate(60, 100)">
+    <!-- PCB Board -->
+    <rect width="250" height="340" rx="16" fill="url(#ad8232-grad)" stroke="#E53E3E" stroke-width="2"/>
+    
+    <!-- Heart Silkscreen -->
+    <path d="M 125,55 C 125,40 105,30 90,45 C 75,60 85,85 125,120 C 165,85 175,60 160,45 C 145,30 125,40 125,55 Z" fill="#FEB2B2" opacity="0.3"/>
+    
+    <!-- Title -->
+    <text x="125" y="32" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="14" font-weight="bold">AD8232 Heart Monitor</text>
+    
+    <!-- 3.5mm Jack representation -->
+    <rect x="75" y="70" width="100" height="60" rx="6" fill="#1A202C" stroke="#4A5568" stroke-width="1.5"/>
+    <circle cx="175" cy="100" r="10" fill="#CBD5E0"/>
+    <text x="125" y="105" text-anchor="middle" fill="#A0AEC0" font-family="sans-serif" font-size="10">3.5mm Lead Jack</text>
+    <text x="125" y="120" text-anchor="middle" fill="#48BB78" font-family="sans-serif" font-size="9">(RA / LA / RL)</text>
+
+    <!-- Pin Headers on Right Side -->
+    <!-- GND -->
+    <circle cx="230" cy="160" r="7" fill="#F6E05E" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="215" y="164" text-anchor="end" fill="#FFFFFF" font-family="monospace" font-size="12" font-weight="bold">GND</text>
+
+    <!-- 3.3V -->
+    <circle cx="230" cy="195" r="7" fill="#F6E05E" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="215" y="199" text-anchor="end" fill="#FFFFFF" font-family="monospace" font-size="12" font-weight="bold">3.3v</text>
+
+    <!-- OUTPUT -->
+    <circle cx="230" cy="230" r="7" fill="#F6E05E" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="215" y="234" text-anchor="end" fill="#00FF88" font-family="monospace" font-size="12" font-weight="bold">OUTPUT</text>
+
+    <!-- LO- -->
+    <circle cx="230" cy="265" r="7" fill="#F6E05E" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="215" y="269" text-anchor="end" fill="#FFFFFF" font-family="monospace" font-size="12" font-weight="bold">LO-</text>
+
+    <!-- LO+ -->
+    <circle cx="230" cy="300" r="7" fill="#F6E05E" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="215" y="304" text-anchor="end" fill="#FFFFFF" font-family="monospace" font-size="12" font-weight="bold">LO+</text>
+
+    <!-- SDN -->
+    <circle cx="230" cy="335" r="7" fill="#F6E05E" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="215" y="339" text-anchor="end" fill="#FFFFFF" font-family="monospace" font-size="12" font-weight="bold">SDN</text>
+  </g>
+
+  <!-- ==================== WeMos D1 Mini Module ==================== -->
+  <g transform="translate(590, 100)">
+    <!-- PCB Board -->
+    <rect width="250" height="340" rx="16" fill="url(#d1mini-grad)" stroke="#3B82F6" stroke-width="2"/>
+    
+    <!-- Title -->
+    <text x="125" y="32" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-size="14" font-weight="bold">WeMos D1 Mini (ESP8266)</text>
+    
+    <!-- ESP-12F Metal Shield representation -->
+    <rect x="55" y="55" width="140" height="110" rx="6" fill="#94A3B8" stroke="#CBD5E1" stroke-width="1.5"/>
+    <text x="125" y="105" text-anchor="middle" fill="#0F172A" font-family="sans-serif" font-size="12" font-weight="bold">ESP8266 WiFi</text>
+    <text x="125" y="125" text-anchor="middle" fill="#334155" font-family="monospace" font-size="10">80/160 MHz</text>
+    
+    <!-- Micro-USB port representation at bottom -->
+    <rect x="85" y="315" width="80" height="25" rx="3" fill="#64748B" stroke="#CBD5E1"/>
+    <text x="125" y="332" text-anchor="middle" fill="#F8FAFC" font-family="sans-serif" font-size="10">USB (115200)</text>
+
+    <!-- Pin Headers on Left Side -->
+    <!-- G (GND) -->
+    <circle cx="20" cy="160" r="7" fill="#F6E05E" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="35" y="164" text-anchor="start" fill="#FFFFFF" font-family="monospace" font-size="12" font-weight="bold">G (GND)</text>
+
+    <!-- 3V3 -->
+    <circle cx="20" cy="195" r="7" fill="#F6E05E" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="35" y="199" text-anchor="start" fill="#FFFFFF" font-family="monospace" font-size="12" font-weight="bold">3V3</text>
+
+    <!-- A0 -->
+    <circle cx="20" cy="230" r="7" fill="#F6E05E" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="35" y="234" text-anchor="start" fill="#00FF88" font-family="monospace" font-size="12" font-weight="bold">A0 (ADC 0-3.2V)</text>
+
+    <!-- D6 / GPIO12 -->
+    <circle cx="20" cy="265" r="7" fill="#F6E05E" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="35" y="269" text-anchor="start" fill="#FFFFFF" font-family="monospace" font-size="12" font-weight="bold">D6 (GPIO12)</text>
+
+    <!-- D5 / GPIO14 -->
+    <circle cx="20" cy="300" r="7" fill="#F6E05E" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="35" y="304" text-anchor="start" fill="#FFFFFF" font-family="monospace" font-size="12" font-weight="bold">D5 (GPIO14)</text>
+
+    <!-- D7 / GPIO13 -->
+    <circle cx="20" cy="335" r="7" fill="#F6E05E" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="35" y="339" text-anchor="start" fill="#FFFFFF" font-family="monospace" font-size="12" font-weight="bold">D7 (GPIO13)</text>
+  </g>
+
+  <!-- ==================== Wiring Lines ==================== -->
+  <!-- Wire 1: GND to G (Black) -->
+  <path d="M 290,260 C 370,260 510,260 610,260" fill="none" stroke="#000000" stroke-width="4"/>
+  <path d="M 290,260 C 370,260 510,260 610,260" fill="none" stroke="#64748B" stroke-width="2"/>
+  <circle cx="290" cy="260" r="3.5" fill="#64748B"/>
+  <circle cx="610" cy="260" r="3.5" fill="#64748B"/>
+  <text x="450" y="252" text-anchor="middle" fill="#94A3B8" font-family="monospace" font-size="10">Common Ground</text>
+
+  <!-- Wire 2: 3.3v to 3V3 (Red) -->
+  <path d="M 290,295 C 370,295 510,295 610,295" fill="none" stroke="#EF4444" stroke-width="3"/>
+  <circle cx="290" cy="295" r="3.5" fill="#EF4444"/>
+  <circle cx="610" cy="295" r="3.5" fill="#EF4444"/>
+  <text x="450" y="288" text-anchor="middle" fill="#EF4444" font-family="monospace" font-size="10">3.3V Power</text>
+
+  <!-- Wire 3: OUTPUT to A0 (Vibrant Green) -->
+  <path d="M 290,330 C 370,330 510,330 610,330" fill="none" stroke="#00FF88" stroke-width="8" stroke-opacity="0.25"/>
+  <path d="M 290,330 C 370,330 510,330 610,330" fill="none" stroke="#00FF88" stroke-width="3.5"/>
+  <circle cx="290" cy="330" r="4.5" fill="#00FF88"/>
+  <circle cx="610" cy="330" r="4.5" fill="#00FF88"/>
+  <text x="450" y="322" text-anchor="middle" fill="#00FF88" font-family="monospace" font-size="11" font-weight="bold">Analog ECG Signal (0-3.2V)</text>
+
+  <!-- Wire 4: LO- to D6 (Yellow) -->
+  <path d="M 290,365 C 370,365 510,365 610,365" fill="none" stroke="#EAB308" stroke-width="3"/>
+  <circle cx="290" cy="365" r="3.5" fill="#EAB308"/>
+  <circle cx="610" cy="365" r="3.5" fill="#EAB308"/>
+  <text x="450" y="358" text-anchor="middle" fill="#EAB308" font-family="monospace" font-size="10">LO- Lead Off (-)</text>
+
+  <!-- Wire 5: LO+ to D5 (Orange) -->
+  <path d="M 290,400 C 370,400 510,400 610,400" fill="none" stroke="#F97316" stroke-width="3"/>
+  <circle cx="290" cy="400" r="3.5" fill="#F97316"/>
+  <circle cx="610" cy="400" r="3.5" fill="#F97316"/>
+  <text x="450" y="393" text-anchor="middle" fill="#F97316" font-family="monospace" font-size="10">LO+ Lead Off (+)</text>
+
+  <!-- Wire 6: SDN to D7 (Blue) -->
+  <path d="M 290,435 C 370,435 510,435 610,435" fill="none" stroke="#38BDF8" stroke-width="2.5" stroke-dasharray="4,4"/>
+  <circle cx="290" cy="435" r="3.5" fill="#38BDF8"/>
+  <circle cx="610" cy="435" r="3.5" fill="#38BDF8"/>
+  <text x="450" y="428" text-anchor="middle" fill="#38BDF8" font-family="monospace" font-size="10">SDN Shutdown (Driven HIGH)</text>
+
+  <!-- Bottom Legend / Info Card -->
+  <rect x="180" y="460" width="540" height="30" rx="8" fill="#1E293B" stroke="#334155"/>
+  <text x="450" y="480" text-anchor="middle" fill="#CBD5E1" font-family="sans-serif" font-size="11">
+    ✓ Onboard 220kΩ/100kΩ divider on D1 Mini A0 scales 0-3.2V directly to ADC0
+  </text>
+</svg>
+

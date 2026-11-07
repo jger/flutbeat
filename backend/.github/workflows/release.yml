@@ -1,0 +1,195 @@
+name: Semantic Release & Multi-Platform Build
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      manual_tag:
+        description: 'Tag name for manual release (e.g. v1.0.0)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  semantic-release:
+    name: Semantic Release (Analyze & Tag)
+    runs-on: ubuntu-latest
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+      new_release_git_tag: ${{ steps.semantic.outputs.new_release_git_tag }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Rust (for cargo lockfile sync)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install System Dependencies (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential protobuf-compiler pkg-config libssl-dev
+
+      - name: Run Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          extra_plugins: |
+            @semantic-release/commit-analyzer
+            @semantic-release/release-notes-generator
+            @semantic-release/changelog
+            @semantic-release/exec
+            @semantic-release/git
+            @semantic-release/github
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-release-assets:
+    name: Build & Upload Assets (${{ matrix.platform_name }})
+    needs: semantic-release
+    if: |
+      always() &&
+      (needs.semantic-release.outputs.new_release_published == 'true' || github.event.inputs.manual_tag != '')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # --- Raspberry Pi / Linux Targets (Static musl - pi_node + log_receiver) ---
+          - target: armv7-unknown-linux-musleabihf
+            os: ubuntu-latest
+            platform_name: rpi-armv7-linux
+            use_cross: true
+            has_pi_node: true
+
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            platform_name: rpi-aarch64-linux
+            use_cross: true
+            has_pi_node: true
+
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            platform_name: x86_64-linux
+            use_cross: true
+            has_pi_node: true
+
+          # --- macOS Targets (Receiver Client only - pi_node is Linux/hardware only) ---
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            platform_name: macos-aarch64-apple-silicon
+            use_cross: false
+            has_pi_node: false
+
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            platform_name: macos-x86_64-intel
+            use_cross: false
+            has_pi_node: false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Release Tag
+        id: tag
+        shell: bash
+        run: |
+          TAG="${{ needs.semantic-release.outputs.new_release_git_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${{ github.event.inputs.manual_tag }}"
+          fi
+          if [ -z "$TAG" ]; then
+            TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo 'v1.0.0')"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using release tag: $TAG"
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install System Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential protobuf-compiler pkg-config libssl-dev
+
+      - name: Install System Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install protobuf cmake
+
+      - name: Install Cross (for Linux cross-compilation)
+        if: matrix.use_cross
+        run: |
+          cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build Binaries (macOS Native / Cargo - log_receiver)
+        if: "!matrix.has_pi_node"
+        run: |
+          cargo build --release --target ${{ matrix.target }} --bin log_receiver
+
+      - name: Build Binaries (Linux Cross - pi_node + log_receiver)
+        if: matrix.has_pi_node && matrix.use_cross
+        run: |
+          cross build --release --target ${{ matrix.target }} --bin pi_node --bin log_receiver
+
+      - name: Package Release Assets
+        id: package
+        shell: bash
+        run: |
+          RELEASE_TAG="${{ steps.tag.outputs.tag }}"
+          ARCHIVE_NAME="minimum-hw-${{ matrix.platform_name }}-${RELEASE_TAG}"
+          ARCHIVE_DIR="dist/${ARCHIVE_NAME}"
+          BIN_PATH="target/${{ matrix.target }}/release"
+
+          mkdir -p "${ARCHIVE_DIR}"
+          mkdir -p dist/assets
+
+          # Copy binaries and README into the archive bundle directory
+          if [ "${{ matrix.has_pi_node }}" = "true" ]; then
+            cp "${BIN_PATH}/pi_node" "${ARCHIVE_DIR}/"
+            cp "${BIN_PATH}/pi_node" "dist/assets/pi_node-${{ matrix.platform_name }}"
+          fi
+
+          cp "${BIN_PATH}/log_receiver" "${ARCHIVE_DIR}/"
+          cp "${BIN_PATH}/log_receiver" "dist/assets/log_receiver-${{ matrix.platform_name }}"
+          cp README.md "${ARCHIVE_DIR}/" || true
+
+          # Create compressed .tar.gz bundle
+          (cd dist && tar -czvf "assets/${ARCHIVE_NAME}.tar.gz" "${ARCHIVE_NAME}")
+
+          # Generate SHA-256 checksums for each release asset
+          cd dist/assets
+          for file in *; do
+            if [ -f "$file" ]; then
+              if command -v sha256sum >/dev/null 2>&1; then
+                sha256sum "$file" > "${file}.sha256"
+              else
+                shasum -a 256 "$file" > "${file}.sha256"
+              fi
+            fi
+          done
+
+      - name: Upload Binaries and Archives to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG="${{ steps.tag.outputs.tag }}"
+          echo "Uploading assets to release ${RELEASE_TAG}..."
+          gh release upload "${RELEASE_TAG}" \
+            dist/assets/* \
+            --clobber

@@ -1,0 +1,119 @@
+# ==============================================================================
+# FlutBeat — Master Root .gitignore
+# Covers: Rust Backend, Flutter Frontend (Android/iOS/Web/Desktop), & ESP Firmware
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Operating System & Editor Files
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editors & IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+*~
+*.bak
+
+# Environment variables & local secrets
+.env
+.env.*
+!.env.example
+
+# ------------------------------------------------------------------------------
+# Rust Backend (flutbeat_backend)
+# ------------------------------------------------------------------------------
+target/
+**/target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# ------------------------------------------------------------------------------
+# Flutter & Dart Frontend (flutbeat_frontend)
+# ------------------------------------------------------------------------------
+.dart_tool/
+**/.dart_tool/
+.packages
+**/.packages
+.pub/
+**/.pub/
+.pub-cache/
+**/doc/api/
+build/
+**/build/
+
+# Flutter tools & generated plugin descriptors
+.flutter-plugins
+.flutter-plugins-dependencies
+.fvm/
+
+# Android build & local configuration
+**/android/.gradle/
+**/android/**/gradle-wrapper.jar
+**/android/local.properties
+**/android/captures/
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+**/android/**/GeneratedPluginRegistrant.java
+
+# iOS & macOS artifacts
+**/ios/**/Pods/
+**/ios/**/.symlinks/
+**/ios/**/DerivedData/
+**/ios/**/xcuserdata/
+**/ios/**/profile/
+**/ios/**/Icon?
+**/ios/.generated/
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/macos/Flutter/ephemeral/
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+
+# Linux & Windows Flutter desktop ephemeral files
+**/linux/flutter/ephemeral/
+**/linux/flutter/generated_plugin_registrant.cc
+**/linux/flutter/generated_plugin_registrant.h
+**/linux/flutter/generated_plugins.cmake
+**/windows/flutter/ephemeral/
+**/windows/flutter/generated_plugin_registrant.cc
+**/windows/flutter/generated_plugin_registrant.h
+**/windows/flutter/generated_plugins.cmake
+
+# ------------------------------------------------------------------------------
+# Firmware & Embedded (WeMos D1 Mini / ESP8266 / Arduino / PlatformIO)
+# ------------------------------------------------------------------------------
+**/.pio/
+**/.pioenvs/
+**/.piolibdeps/
+*.bin
+*.hex
+*.elf
+*.o
+*.a
+*.so
+*.dylib
+
+# ------------------------------------------------------------------------------
+# Logs & Temporary Files
+# ------------------------------------------------------------------------------
+*.log
+*.tmp
+

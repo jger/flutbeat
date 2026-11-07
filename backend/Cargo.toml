@@ -1,0 +1,31 @@
+[package]
+name = "flutbeat_backend"
+version = "1.1.0"
+edition = "2021"
+description = "FlutBeat — High-Performance AD8232 ECG Telemetry, DSP Engine & gRPC Node"
+
+[dependencies]
+tonic = "0.12"
+prost = "0.13"
+tokio = { version = "1.40", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+async-stream = "0.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+colored = "2.1"
+clap = { version = "4.5", features = ["derive"] }
+chrono = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[build-dependencies]
+tonic-build = "0.12"
+protobuf-src = "2.1"
+
+[[bin]]
+name = "ecg_node"
+path = "src/bin/ecg_node.rs"
+
+[[bin]]
+name = "ecg_receiver"
+path = "src/bin/ecg_receiver.rs"
