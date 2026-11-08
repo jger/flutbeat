@@ -17,7 +17,7 @@
  * Networking:
  * Streams 250 Hz batched ECG samples over Wi-Fi UDP (port 50052)
  * to the FlutBeat Rust backend (flutbeat_backend).
- * Also streams CSV output to USB Serial (115200 baud).
+ * Also streams CSV output to USB Serial (74880 baud).
  * ==============================================================================
  */
 
@@ -31,7 +31,7 @@ const char* WIFI_SSID     = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
 // Target Rust gRPC backend IP address (where `ecg_node` is listening on UDP)
-const char* TARGET_HOST_IP = "192.168.178.33";
+const char* TARGET_HOST_IP = "YOUR_COMPUTER_IP";
 const uint16_t UDP_PORT    = 50052;
 
 // -----------------------------------------------------------------------------
@@ -41,7 +41,7 @@ const uint16_t UDP_PORT    = 50052;
 #define PIN_LEAD_OFF_P  D5      // GPIO14 (LO+)
 #define PIN_LEAD_OFF_N  D6      // GPIO12 (LO-)
 #define PIN_SHUTDOWN    D7      // GPIO13 (SDN)
-#define PIN_STATUS_LED  D4      // Built-in LED on D1 Mini (active LOW)
+#define PIN_STATUS_LED  D4      // Built-in LED on D1 Mini / ESP-12F (GPIO2, active LOW)
 
 // -----------------------------------------------------------------------------
 // Sampling Parameters
@@ -63,63 +63,99 @@ uint32_t packetSequence = 0;
 
 WiFiUDP udp;
 
+void flashLeds(int times, int delayMs) {
+  for (int i = 0; i < times; i++) {
+    digitalWrite(PIN_STATUS_LED, LOW); // LED ON
+    #ifdef D0
+    digitalWrite(D0, LOW);
+    #endif
+    delay(delayMs);
+    digitalWrite(PIN_STATUS_LED, HIGH); // LED OFF
+    #ifdef D0
+    digitalWrite(D0, HIGH);
+    #endif
+    delay(delayMs);
+  }
+}
+
 void setup() {
-  Serial.begin(115200);
-  delay(200);
+  // Use 74880 baud to match the ESP8266 hardware bootloader seamlessly!
+  Serial.begin(74880);
+  delay(300);
+
+  // Configure Status LEDs
+  pinMode(PIN_STATUS_LED, OUTPUT);
+  #ifdef D0
+  pinMode(D0, OUTPUT);
+  #endif
+
+  // 5 Fast visual confirmation blinks at startup (ON for 80ms, OFF for 80ms)
+  flashLeds(5, 80);
 
   Serial.println();
   Serial.println(F("=================================================="));
-  Serial.println(F("  FlutBeat — AD8232 ECG Firmware (WeMos D1 Mini)  "));
-  Serial.println(F("  Sampling Rate: 250 Hz (4000 µs interval)        "));
+  Serial.println(F("  ❤️  FlutBeat — AD8232 ECG Firmware (D1 Mini)   "));
+  Serial.println(F("  Baud Rate: 74880 baud | Sampling: 250 Hz        "));
   Serial.println(F("=================================================="));
+  Serial.println(F("[BOOT] Hardware initialized. Starting Wi-Fi setup..."));
 
-  // Configure hardware pins
+  // Configure AD8232 sensor pins
   pinMode(PIN_LEAD_OFF_P, INPUT);
   pinMode(PIN_LEAD_OFF_N, INPUT);
   pinMode(PIN_SHUTDOWN, OUTPUT);
   digitalWrite(PIN_SHUTDOWN, HIGH); // Enable AD8232 front-end
 
-  pinMode(PIN_STATUS_LED, OUTPUT);
-  digitalWrite(PIN_STATUS_LED, HIGH); // LED OFF initially
-
-  // Connect to Wi-Fi
-  Serial.printf("Connecting to Wi-Fi: %s ...\n", WIFI_SSID);
+  // Clean Wi-Fi initialization
+  WiFi.persistent(false);
+  WiFi.disconnect(true);
+  delay(100);
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoConnect(false);
+
+  Serial.printf("[WIFI] Connecting to SSID: '%s' ...\n", WIFI_SSID);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+  while (WiFi.status() != WL_CONNECTED && attempts < 25) {
     delay(300);
-    digitalWrite(PIN_STATUS_LED, !digitalRead(PIN_STATUS_LED)); // Blink while connecting
-    Serial.print(".");
+    digitalWrite(PIN_STATUS_LED, !digitalRead(PIN_STATUS_LED)); // Toggle LED while waiting
+    Serial.print(F("."));
     attempts++;
   }
+  Serial.println();
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println();
-    Serial.printf("Connected! IP: %s\n", WiFi.localIP().toString().c_str());
-    Serial.printf("Streaming UDP packets to %s:%u\n", TARGET_HOST_IP, UDP_PORT);
-    digitalWrite(PIN_STATUS_LED, LOW); // Solid ON when connected
+    Serial.printf("[WIFI] Connected! Board IP: %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("[WIFI] Streaming UDP batches to %s:%u\n", TARGET_HOST_IP, UDP_PORT);
+    digitalWrite(PIN_STATUS_LED, LOW); // Solid ON when connected to Wi-Fi
   } else {
-    Serial.println();
-    Serial.println(F("Wi-Fi timeout! Operating in USB Serial standalone mode."));
+    Serial.printf("[WIFI] Connection failed (status: %d). Continuing in USB Serial mode.\n", WiFi.status());
+    digitalWrite(PIN_STATUS_LED, HIGH);
   }
 
   udp.begin(UDP_PORT);
   lastSampleMicros = micros();
+  Serial.println(F("[RUN] ADC sampling loop active @ 250 Hz."));
 }
 
 void loop() {
   unsigned long currentMicros = micros();
 
-  // Deterministic 250 Hz sampling (every 4000 µs)
+  // 1. Continuous Heartbeat LED blink: Toggles every 500 ms (1 Hz pulse)
+  static unsigned long lastBlinkMs = 0;
+  if (millis() - lastBlinkMs >= 500) {
+    lastBlinkMs = millis();
+    digitalWrite(PIN_STATUS_LED, !digitalRead(PIN_STATUS_LED));
+  }
+
+  // 2. Deterministic 250 Hz sampling (every 4000 µs)
   if (currentMicros - lastSampleMicros >= SAMPLE_INTERVAL_MICROS) {
     lastSampleMicros += SAMPLE_INTERVAL_MICROS;
 
-    // 1. Read AD8232 analog voltage on A0
+    // Read AD8232 analog voltage on A0
     uint16_t adcVal = analogRead(PIN_ECG_ANALOG);
 
-    // 2. Read Lead-Off detection pins
+    // Read Lead-Off detection pins
     uint8_t loP = (digitalRead(PIN_LEAD_OFF_P) == HIGH) ? 1 : 0;
     uint8_t loN = (digitalRead(PIN_LEAD_OFF_N) == HIGH) ? 1 : 0;
 
@@ -129,7 +165,7 @@ void loop() {
     sampleBuffer[bufferIndex].lo_minus = loN;
     bufferIndex++;
 
-    // Print to USB Serial for Arduino Serial Plotter (ADC, LO+, LO-)
+    // Print to USB Serial for Serial Plotter / Monitor (ADC, LO+, LO-)
     Serial.printf("%u,%u,%u\n", adcVal, loP * 1023, loN * 1023);
 
     // When batch buffer is full, transmit over UDP
@@ -172,4 +208,3 @@ void sendUdpBatch() {
   udp.write(packet);
   udp.endPacket();
 }
-
