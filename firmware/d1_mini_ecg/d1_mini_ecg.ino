@@ -27,12 +27,14 @@
 // -----------------------------------------------------------------------------
 // User Configuration — Update your Wi-Fi credentials & Host IP
 // -----------------------------------------------------------------------------
-const char* WIFI_SSID     = "YOUR_WIFI_SSID";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-
-// Target Rust gRPC backend IP address (where `ecg_node` is listening on UDP)
-const char* TARGET_HOST_IP = "YOUR_COMPUTER_IP";
-const uint16_t UDP_PORT    = 50052;
+#if __has_include("secrets.h")
+  #include "secrets.h"
+#else
+  const char* WIFI_SSID     = "YOUR_WIFI_SSID";
+  const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+  const char* TARGET_HOST_IP = "YOUR_COMPUTER_IP";
+  const uint16_t UDP_PORT    = 50052;
+#endif
 
 // -----------------------------------------------------------------------------
 // Hardware Pin Definitions
