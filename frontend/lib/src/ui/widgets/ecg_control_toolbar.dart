@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../generated/telemetry.pb.dart';
+import '../../models/cardiac_metrics.dart';
 import '../../models/telemetry_state.dart';
 import '../../providers/telemetry_provider.dart';
 
@@ -183,9 +183,7 @@ class EcgControlToolbar extends StatelessWidget {
                   const Icon(Icons.hub_outlined, size: 14, color: Colors.white70),
                   const SizedBox(width: 6),
                   Text(
-                    state.sourceMode == SourceMode.UDP_WIFI
-                        ? 'D1 MINI (UDP)'
-                        : (state.sourceMode == SourceMode.USB_SERIAL ? 'SERIAL' : 'SIMULATOR'),
+                    state.sourceMode == SourceMode.usbSerial ? 'USB OTG' : 'SIMULATOR',
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(width: 4),
@@ -195,23 +193,19 @@ class EcgControlToolbar extends StatelessWidget {
             ),
             itemBuilder: (_) => [
               const PopupMenuItem(
-                value: SourceMode.SIMULATOR,
+                value: SourceMode.usbSerial,
+                child: Text('ESP USB OTG (Physical)', style: TextStyle(fontSize: 12)),
+              ),
+              const PopupMenuItem(
+                value: SourceMode.simulator,
                 child: Text('Synthetic ECG Simulator', style: TextStyle(fontSize: 12)),
-              ),
-              const PopupMenuItem(
-                value: SourceMode.UDP_WIFI,
-                child: Text('WeMos D1 Mini (Wi-Fi UDP)', style: TextStyle(fontSize: 12)),
-              ),
-              const PopupMenuItem(
-                value: SourceMode.USB_SERIAL,
-                child: Text('USB Serial / UART', style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
           const SizedBox(width: 8),
 
           // 7. Sim BPM Quick Adjust (if in simulator mode)
-          if (state.sourceMode == SourceMode.SIMULATOR)
+          if (state.sourceMode == SourceMode.simulator)
             IconButton(
               icon: const Icon(Icons.tune_rounded, size: 18),
               tooltip: 'Adjust Simulated BPM',

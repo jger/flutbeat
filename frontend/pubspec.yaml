@@ -15,10 +15,9 @@ dependencies:
   flutter_riverpod: ^3.4.2
   riverpod_annotation: ^4.0.6
 
-  # gRPC communication with flutbeat_backend
-  grpc: ^5.1.0
-  protobuf: ^6.1.0
-  fixnum: ^1.1.0
+  # Direct USB Serial OTG communication with ESP (No backend!)
+  usb_serial:
+    path: packages/usb_serial
 
   # Local persistence for config settings
   shared_preferences: ^2.3.5

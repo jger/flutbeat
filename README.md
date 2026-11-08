@@ -1,29 +1,29 @@
-# ❤️ FlutBeat — Professional AD8232 ECG Telemetry & Clinical Oscilloscope
+# ❤️ FlutBeat — Direct USB OTG ECG Telemetry & Clinical Oscilloscope
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B.svg?logo=flutter)](https://flutter.dev)
-[![Rust](https://img.shields.io/badge/Rust-2021_Edition-orange.svg?logo=rust)](https://www.rust-lang.org/)
-[![gRPC](https://img.shields.io/badge/gRPC-v1.12_Tonic-blue.svg?logo=grpc)](https://github.com/hyperium/tonic)
+[![Architecture](https://img.shields.io/badge/Architecture-Direct_USB_OTG_(No_Backend)-green.svg)](#-system-architecture)
 [![Riverpod](https://img.shields.io/badge/Riverpod-3.x_Codegen-blueviolet.svg?logo=dart)](https://riverpod.dev/)
 [![Hardware](https://img.shields.io/badge/Sensor-AD8232_ECG-red.svg)](https://www.analog.com/en/products/ad8232.html)
-[![Microcontroller](https://img.shields.io/badge/MCU-WeMos_D1_Mini_(ESP8266)-005571.svg?logo=espressif)](https://www.wemos.cc/)
+[![Microcontroller](https://img.shields.io/badge/MCU-WeMos_D1_Mini_(ESP8266)_/_ESP32-005571.svg?logo=espressif)](https://www.wemos.cc/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**FlutBeat** is a clinical-grade, real-time Electrocardiogram (ECG) monitoring, Digital Signal Processing (DSP), and telemetry system. Electrical cardiac signals acquired by an **Analog Devices AD8232** front-end are sampled at **250 Hz** by a **WeMos D1 Mini (ESP8266)**, processed in real time by an asynchronous **Rust (`tonic` gRPC) DSP backend**, and streamed to a high-precision **Flutter (`Riverpod 3.x`)** clinical oscilloscope dashboard.
+**FlutBeat** is a clinical-grade, real-time Electrocardiogram (ECG) monitoring and telemetry system operating **directly between the ESP microcontroller and a Flutter mobile application via a physical USB-C OTG cable — requiring no backend server, no cloud, and no Wi-Fi network**.
+
+Electrical cardiac biopotentials acquired by an **Analog Devices AD8232** front-end are sampled at **250 Hz** by the ESP microcontroller, streamed over high-speed USB Serial directly into Flutter, filtered and analyzed by an embedded **in-app Dart DSP & Pan-Tompkins QRS detection engine**, and rendered on a 60 FPS medical oscilloscope canvas.
 
 ---
 
 ## 📑 Table of Contents
 
 1. [System Architecture](#-system-architecture)
-2. [Hardware Wiring & Pinout (AD8232 ↔ WeMos D1 Mini)](#-hardware-wiring--pinout)
-3. [Einthoven 3-Lead Electrode Placement](#-einthoven-3-lead-electrode-placement)
-4. [Digital Signal Processing (DSP) Pipeline](#-digital-signal-processing-dsp-pipeline)
-5. [gRPC API Contract (`telemetry.proto`)](#-grpc-api-contract)
-6. [Firmware Setup (WeMos D1 Mini ESP8266)](#-firmware-setup)
-7. [Quickstart: Rust Backend & Simulator](#-quickstart-rust-backend--simulator)
+2. [Required Electronics & Hardware Components (BOM)](#-required-electronics--hardware-components-bom)
+3. [Circuit Schematics & Hardware Wiring](#-circuit-schematics--hardware-wiring)
+4. [AD8232 Analog Front-End Circuit Architecture](#-ad8232-analog-front-end-circuit-architecture)
+5. [Einthoven 3-Lead Electrode Placement](#-einthoven-3-lead-electrode-placement)
+6. [In-App Digital Signal Processing (DSP) Pipeline](#-in-app-digital-signal-processing-dsp-pipeline)
+7. [Firmware Setup (WeMos D1 Mini / ESP32)](#-firmware-setup)
 8. [Quickstart: Flutter Clinical Dashboard](#-quickstart-flutter-clinical-dashboard)
-9. [Terminal CLI Receiver](#-terminal-cli-receiver)
-10. [Repository Structure](#-repository-structure)
+9. [Repository Structure](#-repository-structure)
 
 ---
 
@@ -31,36 +31,48 @@
 
 ```mermaid
 flowchart LR
-    subgraph HW["1. Hardware Layer (AD8232 + D1 Mini ESP8266)"]
+    subgraph HW["1. Hardware Layer (AD8232 + ESP Microcontroller)"]
         PADS["3-Lead ECG Electrodes\n(RA / LA / RL)"] --> AD8232["AD8232 Heart Monitor\n(Biopotential Front-End)"]
-        AD8232 -- "OUTPUT (0-3.3V)" --> A0["D1 Mini Pin A0\n(10-bit ADC @ 250 Hz)"]
-        AD8232 -- "LO+ / LO-" --> D5D6["D1 Mini Pins D5 & D6\n(GPIO14 & GPIO12 Lead-Off)"]
+        AD8232 -- "OUTPUT (0-3.3V)" --> A0["ESP Pin A0\n(10-bit ADC @ 250 Hz)"]
+        AD8232 -- "LO+ / LO-" --> D5D6["ESP Pins D5 & D6\n(GPIO14 & GPIO12 Lead-Off)"]
     end
 
-    subgraph BE["2. Rust DSP & gRPC Node (flutbeat_backend)"]
-        INGEST["Multi-Source Ingestion\n• Wi-Fi UDP (:50052)\n• USB Serial (115200)\n• Synthetic PQRST Sim"]
-        DSP["Real-Time ECG DSP Engine\n• DC-Block High-Pass (0.5 Hz)\n• 50 Hz Biquad Notch Filter\n• 40 Hz Smoothing Low-Pass\n• Pan-Tompkins QRS R-Peak Detector\n• BPM, R-R, HRV SDNN & RMSSD\n• Clinical Rhythm Classifier"]
-        GRPC["Tonic gRPC Server (:50051)\n• StreamEcg (250 Hz batched chunks)\n• StreamCardiacEvents (R-peaks, alarms)\n• StreamLogs (DSP diagnostics)\n• ConfigureSource (Runtime control)"]
-        INGEST --> DSP --> GRPC
-    end
-
-    subgraph FE["3. Flutter Clinical Dashboard (flutbeat_frontend)"]
+    subgraph FE["2. Flutter Clinical Dashboard (Direct OTG Connection)"]
+        USB["USB Serial OTG Driver\n(usb_serial @ 115200 baud)\n• Auto device detection (CH340/CP2102/FTDI)\n• Fallback ECG Simulator"]
+        DSP["In-App Dart DSP & Analytics Pipeline\n• DC-Block High-Pass (0.5 Hz)\n• 50 Hz Biquad Notch Filter\n• 40 Hz Butterworth Low-Pass\n• Pan-Tompkins QRS R-Peak Detector\n• BPM, R-R, HRV SDNN & RMSSD\n• Clinical Rhythm Classifier"]
         RIVERPOD["Riverpod 3.x State Notifier\n& 1250-Point Ring Buffer (5s)"]
         CANVAS["60 FPS Medical Oscilloscope\n• Standard 1mm/5mm Millimeter Grid\n• 1 mV Calibration Pulse\n• ICU Sweep Mode (Erase-Bar + Cursor)\n• Continuous Left-Scrolling Mode\n• 25 mm/s & 50 mm/s Paper Speeds\n• 5, 10, 20 mm/mV Voltage Gains"]
         VITALS["Clinical Vitals & Controls\n• Pulsing Heart & BPM Readout\n• Rhythm: Sinus, Brady, Tachy, Arrhythmia\n• R-R Interval, HRV SDNN, RMSSD\n• Live LO+ / LO- Electrode Status\n• Freeze/Resume & CSV Export"]
+
+        USB --> DSP --> RIVERPOD
         RIVERPOD --> CANVAS
         RIVERPOD --> VITALS
     end
 
-    A0 & D5D6 -- "Wi-Fi UDP / Serial\n(10-sample batches @ 40ms)" --> INGEST
-    GRPC -- "HTTP/2 Protobuf Stream" --> RIVERPOD
+    A0 & D5D6 -- "Physical USB-C OTG Cable\n(115200 baud Serial Stream: adc,loP,loN)" --> USB
 ```
 
 ---
 
-## ⚡ Hardware Wiring & Pinout
+## 🧰 Required Electronics & Hardware Components (BOM)
 
-The **WeMos D1 Mini (ESP8266)** includes an onboard `220kΩ / 100kΩ` resistor divider on pin `A0`, scaling its internal `0–1.0V` ADC range to **`0–3.2V` (10-bit resolution: `0–1023`)**. This matches the AD8232 analog `OUTPUT` voltage swing cleanly without requiring external resistors.
+To build the physical FlutBeat biopotential acquisition node, you will need the following electronic components:
+
+| Item | Component | Specification | Description / Role |
+| :---: | :--- | :--- | :--- |
+| **1** | **Analog Devices AD8232 Breakout** | Single-Lead ECG Front-End Board | Instrumentation amp + Right Leg Drive (RLD) + high/low-pass filters ($\text{Gain} \approx 1100\text{ V/V}$). |
+| **2** | **Microcontroller Board** | **WeMos D1 Mini (ESP8266)** or **ESP32 DevKit** | Samples analog cardiac signal at 250 Hz and streams CSV frames via UART/USB bridge. |
+| **3** | **ECG Biomedical Cable** | 3-Lead Shielded Cable ($3.5\text{ mm}$ audio jack to button snaps) | Connects body electrodes to the AD8232 input jack with minimal electromagnetic induction. |
+| **4** | **ECG Electrode Pads** | Pre-gelled $\text{Ag/AgCl}$ Disposable Electrodes (3 pads) | Medical-grade adhesive hydrogel pads ensuring low skin-contact impedance ($<5\text{ k}\Omega$). |
+| **5** | **USB-C OTG Cable / Adapter** | USB-C Male to Micro-USB / USB-C Data Cable | Powers the microcontroller directly from the mobile phone ($5\text{V VBUS}$) and carries bidirectional Serial data. |
+| **6** | **Jumper Wires** | Female-to-Female or Male-to-Female DuPont ($10\text{–}15\text{ cm}$) | Interconnects AD8232 breakout header pins to the ESP development board. |
+| **7** | **Breadboard (Optional)** | Mini Solderless Prototype Breadboard ($170\text{–}400$ tie points) | Convenient for stable bench testing and prototyping. |
+
+---
+
+## ⚡ Circuit Schematics & Hardware Wiring
+
+The **WeMos D1 Mini (ESP8266)** includes an onboard $220\text{ k}\Omega\ /\ 100\text{ k}\Omega$ resistor divider on pin `A0`, scaling its internal $0–1.0\text{ V}$ ADC range to **$0–3.2\text{ V}$ ($10$-bit resolution: $0–1023$)**. This matches the AD8232 analog `OUTPUT` voltage swing cleanly without requiring external resistors.
 
 <p align="center">
   <img src="assets/ad8232_d1_mini_wiring.svg" alt="AD8232 to WeMos D1 Mini Wiring Diagram" width="820"/>
@@ -70,12 +82,57 @@ The **WeMos D1 Mini (ESP8266)** includes an onboard `220kΩ / 100kΩ` resistor d
 
 | AD8232 Pin | D1 Mini Pin | ESP8266 GPIO | Wire Color | Function & Electrical Specification |
 |---|---|---|---|---|
-| **`3.3V`** | **`3V3`** | 3.3V LDO Output | **Red** | Power supply (regulated 3.3V from D1 Mini) |
+| **`3.3V`** | **`3V3`** | 3.3V LDO Output | **Red** | Power supply (regulated $3.3\text{ V}$ from D1 Mini onboard regulator; $I_{DD} \approx 170\ \mu\text{A}$) |
 | **`GND`** | **`G`** | Ground | **Black** | Common system ground reference |
-| **`OUTPUT`** | **`A0`** | `ADC0` | **Green** | Amplified & filtered analog cardiac signal (`0–3.2V`) |
-| **`LO-`** | **`D6`** | `GPIO12` | **Yellow** | Lead-Off Detection Negative (`1` = disconnected, `0` = connected) |
-| **`LO+`** | **`D5`** | `GPIO14` | **Orange** | Lead-Off Detection Positive (`1` = disconnected, `0` = connected) |
-| **`SDN`** | **`D7`** | `GPIO13` | **Blue** | Shutdown control (Driven `HIGH` by D1 Mini to enable AD8232) |
+| **`OUTPUT`** | **`A0`** | `ADC0` | **Green** | Amplified & filtered analog cardiac signal ($0–3.2\text{ V}$, centered around $1.65\text{ V}$ virtual ground) |
+| **`LO-`** | **`D6`** | `GPIO12` | **Yellow** | Lead-Off Detection Negative ($1$ = disconnected, $0$ = connected; internal pull-up) |
+| **`LO+`** | **`D5`** | `GPIO14` | **Orange** | Lead-Off Detection Positive ($1$ = disconnected, $0$ = connected; internal pull-up) |
+| **`SDN`** | **`D7`** | `GPIO13` | **Blue** | Shutdown control (Driven `HIGH` by D1 Mini to enable AD8232 front-end amplifier) |
+
+> [!NOTE]
+> If using an **ESP32** instead of the D1 Mini:
+> - Connect `OUTPUT` to `GPIO36` (ADC1 Channel 0, `VP`) or `GPIO34`.
+> - Configure the ESP32 ADC attenuation to `ADC_ATTEN_DB_11` ($0\text{–}3.3\text{ V}$ input range).
+> - Connect `LO+`, `LO-`, and `SDN` to any available digital GPIOs (e.g., `GPIO14`, `GPIO12`, `GPIO13`).
+
+---
+
+## 🔬 AD8232 Analog Front-End Circuit Architecture
+
+The AD8232 is an integrated biopotential conditioning front-end specifically designed to extract, amplify, and filter small cardiac signals in the presence of noisy environments:
+
+```
+               +-------------------------------------------------------------+
+               |                  AD8232 Analog Front-End                    |
+               |                                                             |
+   RA (Red) ---+---> [Instrumentation Amp] ----> [High-Pass Filter 0.5Hz]    |
+               |      (Differential G=100)                      |            |
+   LA (Yel) ---+------------+                                   v            |
+               |            |                      [Sallen-Key Low-Pass 40Hz] |
+   RL (Grn) <--+--- [Right Leg Drive (RLD)]               (G=11 V/V)         |
+               |     (Common-Mode Feedback)                     |            |
+               |                                                v            |
+               |                                            [OUTPUT] --------+---> ESP ADC (A0)
+               |                                                             |
+               |   [Lead-Off Detectors (+ / -)] ------------> [LO+ / LO-] ---+---> ESP D5 / D6
+               +-------------------------------------------------------------+
+```
+
+1. **Instrumentation Amplifier (INA Stage)**:
+   - High Common-Mode Rejection Ratio ($\text{CMRR} > 80\text{ dB}$) rejects common-mode noise from powerlines and fluorescent lighting.
+   - Internal instrumentation gain fixed at $G = 100\text{ V/V}$.
+2. **Right Leg Drive (RLD) Inverting Amplifier**:
+   - Detects the common-mode voltage on the patient's body through the RA and LA electrodes, inverts it, and drives it back through the RL (Right Leg) electrode.
+   - Cancels 50/60 Hz electromagnetic pickup from ambient electrical wiring.
+3. **High-Pass Filter ($0.5\text{ Hz}$)**:
+   - Eliminates the large half-cell electrode offset potential ($> 300\text{ mV}$) created at the skin-gel interface, preventing amplifier saturation.
+4. **Two-Pole Sallen-Key Low-Pass Filter ($40\text{ Hz}$)**:
+   - Active low-pass filter stage with a gain of $11\text{ V/V}$.
+   - Provides anti-aliasing prior to ADC sampling at 250 Hz.
+   - **Total Analog Gain**: $G_{\text{total}} = 100 \times 11 = 1100\text{ V/V}$.
+5. **Leads-Off Detection Comparators**:
+   - Senses high impedance when an electrode pad falls off or loses skin contact.
+   - Drives `LO+` or `LO-` lines `HIGH` to immediately warn the application.
 
 ---
 
@@ -87,246 +144,144 @@ For standard **Lead II** monitoring (which yields the tallest, clearest R-peak d
   <img src="assets/ecg_electrode_placement.svg" alt="Einthoven 3-Lead Electrode Placement" width="700"/>
 </p>
 
-1. **RA (Right Arm — Red)**: Placed near the right shoulder, just beneath the right clavicle.
-2. **LA (Left Arm — Yellow)**: Placed near the left shoulder, just beneath the left clavicle.
-3. **RL (Right Leg — Green)**: Placed on the lower right abdomen or right lower ribcage (acts as the body ground reference to cancel 50/60 Hz common-mode noise).
+### Anatomical Placement Guide
 
-$$\text{Lead II Potential} = V_{\text{LA}} - V_{\text{RA}}$$
+| Electrode Pad | Body Placement Location | Clinical Function | Wire Color (Standard) |
+| :---: | :--- | :--- | :---: |
+| **RA** | Right Infraclavicular Fossa (just beneath the right clavicle) | Negative biopotential input | **Red** |
+| **LA** | Left Infraclavicular Fossa (just beneath the left clavicle) | Ground / Reference | **Yellow** |
+| **RL** | Lower Left Abdomen (above left hip bone) | Positive biopotential input (Lead II axis) | **Green / Black** |
 
----
+$$\text{Lead II Potential} = V_{\text{LL}} - V_{\text{RA}}$$
 
-## 🎛 Digital Signal Processing (DSP) Pipeline
-
-The Rust DSP engine (`backend/src/dsp.rs`) processes samples at a strict **$f_s = 250\text{ Hz}$** ($T_s = 4\text{ ms}$):
-
-1. **ADC to Millivolt Scaling**:
-   Converts 10-bit raw ADC (`0..1023`, centered around baseline ~`512`) back to physiological surface millivolts through the AD8232 instrumentation and filter gain stage ($G \approx 1100\text{ V/V}$):
-   $$\Delta V_{\text{physio}} = \frac{(\text{ADC} - 511.5) \cdot (3200\text{ mV} / 1023)}{1100} \approx -1.5\text{ mV} \dots +1.5\text{ mV}$$
-
-2. **DC-Blocking High-Pass Filter ($f_c \approx 0.5\text{ Hz}$)**:
-   $$y[n] = x[n] - x[n-1] + 0.992 \cdot y[n-1]$$
-   Removes slow baseline wander caused by subject respiration and perspiration.
-
-3. **50 Hz Biquad Notch Filter ($Q = 8$)**:
-   Suppresses mains powerline hum and electrical interference.
-
-4. **40 Hz Smoothing Low-Pass Filter**:
-   Second-order Butterworth low-pass filter attenuating high-frequency electromyographic (EMG) muscle tremor noise.
-
-5. **Pan-Tompkins QRS R-Peak Detector**:
-   - 5-point derivative: $y[n] = \frac{1}{8} (2x[n] + x[n-1] - x[n-3] - 2x[n-4])$
-   - Non-linear squaring operator: $y[n]^2$
-   - Moving-Window Integration (MWI) over 30 samples ($120\text{ ms}$)
-   - Adaptive dual-threshold tracking (signal peak vs. noise peak)
-   - $200\text{ ms}$ refractory blanking period to prevent double-counting T waves.
-
-6. **Cardiac Metrics & Rhythm Classification**:
-   - Rolling **Heart Rate (BPM)** $= 60000 / \text{RR}_{\text{ms}}$
-   - **HRV SDNN**: Standard deviation of all NN/RR intervals over 30 beats
-   - **HRV RMSSD**: Root mean square of successive differences between adjacent RR intervals
-   - Rhythm: `NORMAL SINUS` (60–100 BPM), `BRADYCARDIA` (< 60 BPM), `TACHYCARDIA` (> 100 BPM), `IRREGULAR ARRHYTHMIA` ($\text{SDNN} > 65\text{ ms}$), or `NO SIGNAL` (Lead-Off active).
+> [!TIP]
+> **Best Practices for Clean ECG Signals:**
+> 1. Clean the skin with an alcohol wipe and let it dry before attaching the electrode pads.
+> 2. Ensure firm adhesion to reduce motion artifacts.
+> 3. Keep the subject relaxed and still during monitoring to prevent electromyographic (EMG) muscle noise.
 
 ---
 
-## 📜 gRPC API Contract
+## 💻 In-App Digital Signal Processing (DSP) Pipeline
 
-The service definition is in [`backend/proto/telemetry.proto`](backend/proto/telemetry.proto) (mirrored in `frontend/proto/telemetry.proto`):
+The application processes raw ADC data at **250 Hz** ($T_s = 4.0\text{ ms}$) in pure Dart:
 
-```protobuf
-syntax = "proto3";
-package telemetry.v1;
+1. **Physical Voltage Scaling**:
+   Converts 10-bit raw ADC ($0 \dots 1023$, centered around baseline $\approx 512$) to physiological millivolts ($-1.6\text{ mV} \dots +1.6\text{ mV}$):
+   $$V_{\text{cardiac}} = \frac{(ADC - 512) \times \frac{3200\text{ mV}}{1023}}{\text{Gain}_{\text{AD8232}}} \quad (\text{Gain} = 1100\text{ V/V})$$
 
-service TelemetryService {
-  // High-frequency 250 Hz batched ECG waveform chunks
-  rpc StreamEcg (StreamEcgRequest) returns (stream EcgWaveformChunk);
+2. **DC Blocker ($0.5\text{ Hz}$ High-Pass)**:
+   Eliminates baseline drift and respiration wander:
+   $$y[n] = x[n] - x[n-1] + \alpha \cdot y[n-1] \quad (\alpha = 0.992)$$
 
-  // Discrete cardiac events (QRS R-peaks, Lead-Off alarms, rhythm switches)
-  rpc StreamCardiacEvents (StreamEventsRequest) returns (stream CardiacEvent);
+3. **$50\text{ Hz}$ Biquad Notch Filter**:
+   Attenuates AC mains electrical hum with high Q-factor ($Q = 8$).
 
-  // Diagnostic operational & DSP logs
-  rpc StreamLogs (StreamLogsRequest) returns (stream LogEntry);
+4. **$40\text{ Hz}$ Butterworth Low-Pass Filter**:
+   Suppresses high-frequency electromyographic (EMG) muscle noise and tremor.
 
-  // Status query snapshot
-  rpc GetStatus (GetStatusRequest) returns (StatusResponse);
+5. **Pan-Tompkins QRS Detection Engine**:
+   - 5-point derivative: $y[n] = \frac{2x[n] + x[n-1] - x[n-3] - 2x[n-4]}{8}$
+   - Nonlinear squaring: $y[n]^2$
+   - Moving-Window Integration (MWI) over $120\text{ ms}$ window ($30$ samples)
+   - Dual adaptive thresholding ($0.25 \times (\text{Signal} - \text{Noise})$)
+   - $200\text{ ms}$ refractory blanking period ($50$ samples)
 
-  // Switch between Hardware (UDP/Serial) and Synthetic Simulator at runtime
-  rpc ConfigureSource (ConfigureSourceRequest) returns (StatusResponse);
-}
-```
+6. **Cardiac Telemetry & HRV Calculation**:
+   - R-R intervals and moving heart rate (BPM)
+   - HRV metrics: **SDNN** and **RMSSD**
+   - Rhythm classification: *Normal Sinus*, *Bradycardia* ($<60$), *Tachycardia* ($>100$), *Irregular Arrhythmia*, *No Signal*.
 
 ---
 
-## 🔌 Firmware Setup (WeMos D1 Mini ESP8266)
+## ⚡ Firmware Setup (WeMos D1 Mini / ESP32)
 
 The firmware sketch is located at [`firmware/d1_mini_ecg/d1_mini_ecg.ino`](firmware/d1_mini_ecg/d1_mini_ecg.ino):
 
 1. Open `firmware/d1_mini_ecg/d1_mini_ecg.ino` in the **Arduino IDE** or **VS Code (PlatformIO)**.
-2. In the Board Manager, ensure **`esp8266 by ESP8266 Community`** is installed. Select board **`LOLIN(WEMOS) D1 R2 & mini`**.
-3. Update your Wi-Fi credentials and target workstation IP:
-   ```cpp
-   const char* WIFI_SSID     = "YOUR_WIFI_SSID";
-   const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-   const char* TARGET_HOST_IP = "192.168.178.xx"; // IP of computer running `ecg_node`
+2. Select your board (e.g., **LOLIN(WEMOS) D1 R2 & mini** or **ESP32 Dev Module**).
+3. Connect your board via USB and click **Upload**.
+4. The board immediately begins streaming CSV packets at **115200 baud** ($8\text{-N-}1$):
+   ```text
+   <adc>,<lo_plus>,<lo_minus>
+   512,0,0
    ```
-4. Connect the D1 Mini via Micro-USB and click **Upload**.
-5. The D1 Mini will sample pin `A0` at deterministic **250 Hz** ($4000\ \mu\text{s}$ interval) and transmit 10-sample batches over Wi-Fi UDP (port `50052`) while mirroring CSV data over USB Serial at `115200` baud.
 
 ---
 
-## 🚀 Quickstart: Rust Backend & Simulator
+## 🚀 Quickstart: Flutter Clinical Dashboard
 
-The Rust backend includes a built-in **McSharry-inspired P-Q-R-S-T Synthetic ECG Simulator**, so you can develop, test, and demonstrate the full stack immediately even without hardware plugged in!
+### 1. Requirements
+- Flutter SDK (>= 3.13)
+- Android device with USB-OTG support (or Android Emulator / macOS desktop with built-in simulator)
 
-### 1. Build & Run the Backend Node
+### 2. Run Tests & Analyzer
 ```bash
-cd backend
-
-# Run with built-in simulator test signal (default 72 BPM):
-make test-signal
-
-# Custom test signals:
-make test-signal BPM=100
-make test-signal-brady    # 48 BPM Bradycardia test
-make test-signal-tachy    # 135 BPM Tachycardia test
-make test-signal-leadoff  # Electrode disconnect alert test
-
-# Or listen for real WeMos D1 Mini UDP packets on port 50052:
-cargo run --bin ecg_node -- --mode udp
+make test     # Runs DSP unit tests and UI widget tests
+make analyze  # Runs Flutter static analysis
 ```
 
-### 2. Available Make Commands
-Run `make help` (from the repository root or inside `backend/`) to view all tasks:
-```text
-  test-signal            Run BE generating synthetic ECG test signal for FE (default: BPM=72, PORT=50051)
-  test-signal-brady      Run BE test signal with Bradycardia (48 BPM) for FE alert testing
-  test-signal-tachy      Run BE test signal with Tachycardia (135 BPM) for FE alert testing
-  test-signal-leadoff    Run BE test signal with Lead-Off disconnect condition for FE alert testing
-  send-test-signal       Stream UDP test signal packets into running BE (simulates WeMos D1 Mini)
-  sim                    Alias for test-signal
-  build                  Build debug binaries (ecg_node, ecg_receiver)
-  build-release          Build optimized release binaries
-  run-node               Run FlutBeat ECG gRPC server & simulator daemon
-  run-receiver           Run terminal ECG oscilloscope & telemetry receiver
-  check                  Fast compilation check
-  test                   Run full unit and gRPC integration test suite
-  clippy                 Run Clippy linter
-```
-
----
-
-## 📱 Quickstart: Flutter Clinical Dashboard
-
-The Flutter application provides a 60 FPS medical oscilloscope on standard millimeter grid paper, responsive vital cards, clinical toolbar controls, and a collapsible cardiac event drawer.
-
+### 3. Launch Application
 ```bash
-cd frontend
-
-# Install dependencies
-flutter pub get
-
-# Run static analysis & test suite
-flutter analyze
-flutter test
-
-# Run application on macOS desktop, Chrome, iOS Simulator, or Android
-flutter run
+make fe-run   # Launches Flutter app
 ```
 
-### Clinical Dashboard Features:
-- **Medical Millimeter Grid**: Minor $1\text{ mm}$ grid ticks and major $5\text{ mm}$ squares ($0.20\text{ s} \times 0.5\text{ mV}$) with $1\text{ mV}$ calibration pulse.
-- **Display Modes**:
-  - **ICU Sweep Mode** (default): Glowing phosphor cursor sweeps left-to-right with a blanking erase bar.
-  - **Continuous Scroll Mode**: Waveform scrolls smoothly from right to left.
-- **Paper Speed & Gain**: Toggle between $25\text{ mm/s}$ & $50\text{ mm/s}$, and $5\text{ mm/mV}$, $10\text{ mm/mV}$, or $20\text{ mm/mV}$.
-- **Pulsing Heart & Vitals**: Heart icon pulses synchronously with every detected QRS R-peak; displays real-time BPM, R-R intervals, HRV SDNN/RMSSD, and rhythm tags.
-- **Electrode Status**: Live indicators for `LO+` (`D5`) and `LO-` (`D6`). Flashes a prominent warning banner if electrodes detach.
-- **CSV Export**: One-click button copies all captured waveform points in the ring buffer directly to the clipboard.
+### 4. Connect via USB OTG
+1. Plug the ESP board into your Android phone/tablet using a USB-C OTG adapter cable.
+2. Open the FlutBeat app.
+3. Tap the **Settings icon** in the top-right corner.
+4. Tap **"Scan Ports"** — your connected USB-to-UART chip (CH340, CP2102, FTDI) will appear.
+5. Tap **"Connect to ESP OTG"**!
+*(Note: If you don't have physical hardware at hand, toggle **"ECG Simulator"** to run the built-in synthetic cardiac generator).*
 
 ---
 
-## 🖥 Terminal CLI Receiver
-
-To inspect the telemetry stream directly in the terminal with an ASCII/Unicode sparkline:
-
-```bash
-cd backend
-cargo run --bin ecg_receiver -- --server-url http://127.0.0.1:50051
-```
-
-**Terminal Output Example:**
-```text
-=========================================================
-   ❤️  FlutBeat — Live ECG Oscilloscope & Telemetry Receiver
-   Server: http://127.0.0.1:50051 | Min Level: info
-=========================================================
-
-✓ Connected to http://127.0.0.1:50051
-
-── Initial System Status ───────────────────────────────────
-  Uptime: 2s | Mode: Simulator | Samples Processed: 520 | HR: 72 BPM
-────────────────────────────────────────────────────────────
-
-[#001] ❤️  BEEP | SIMULATOR   | HR:  72 BPM | RR:  833 ms | HRV: 38.2 ms | +1.42 mV | Trace:  ▂▃▄▅██▇▅▃▂ 
-[#002] 🤍       | SIMULATOR   | HR:  72 BPM | RR:  833 ms | HRV: 38.2 ms | +0.28 mV | Trace: ▂▃▄▄▃▂     
-[#003] 🤍       | SIMULATOR   | HR:  72 BPM | RR:  833 ms | HRV: 38.2 ms | +0.01 mV | Trace: ▂          
-```
-
----
-
-## 📁 Repository Structure
+## 📂 Repository Structure
 
 ```text
 flutbeat/
-├── README.md                          # Unified master documentation
+├── README.md                          # Master documentation & circuit schematics
 ├── assets/
 │   ├── ad8232_d1_mini_wiring.svg      # Vector wiring schematic (AD8232 <-> D1 Mini)
 │   └── ecg_electrode_placement.svg    # Einthoven Lead II electrode placement diagram
 ├── firmware/
 │   └── d1_mini_ecg/
-│       └── d1_mini_ecg.ino            # Arduino C++ 250 Hz UDP/Serial firmware
-├── backend/
-│   ├── Cargo.toml                     # Rust manifest (tonic, prost, tokio, clap)
-│   ├── Makefile                       # Build, run, test, and clippy targets
-│   ├── build.rs                       # Tonic protoc compilation script
-│   ├── proto/
-│   │   └── telemetry.proto            # gRPC protocol buffer contract
-│   ├── src/
-│   │   ├── lib.rs                     # Library exports & timestamp formatters
-│   │   ├── dsp.rs                     # DC block, 50Hz notch, 40Hz LP, Pan-Tompkins QRS, HRV
-│   │   ├── simulator.rs               # Synthetic PQRST Gaussian morphology generator
-│   │   ├── ingest.rs                  # Wi-Fi UDP :50052 & Serial parser
-│   │   ├── server.rs                  # Shared state & Tonic TelemetryService implementation
-│   │   └── bin/
-│   │       ├── ecg_node.rs            # Server daemon (gRPC + UDP + Simulator)
-│   │       └── ecg_receiver.rs        # Terminal CLI viewer & sparkline receiver
-│   └── tests/
-│       └── grpc_telemetry_test.rs     # Integration test suite for gRPC endpoints
-└── frontend/
-    ├── pubspec.yaml                   # Flutter manifest (Riverpod 3.x, grpc, protobuf)
-    ├── proto/
-    │   └── telemetry.proto            # Protobuf schema
-    ├── lib/
-    │   ├── main.dart                  # Clinical dark theme & ProviderScope entry
-    │   └── src/
-    │       ├── generated/             # Protobuf & gRPC Dart stubs
-    │       ├── models/
-    │       │   ├── connection_config.dart
-    │       │   └── telemetry_state.dart
-    │       ├── providers/
-    │       │   ├── config_provider.dart
-    │       │   ├── grpc_client_provider.dart
-    │       │   └── telemetry_provider.dart
-    │       └── ui/
-    │           ├── screens/
-    │           │   ├── dashboard_screen.dart
-    │           │   └── config_screen.dart
-    │           └── widgets/
-    │               ├── blinking_heartbeat_dot.dart
-    │               ├── clinical_vitals_bar.dart
-    │               ├── ecg_control_toolbar.dart
-    │               ├── ecg_oscilloscope_painter.dart
-    │               └── event_log_list.dart
-    └── test/
-        └── widget_test.dart           # UI & widget test suite
+│       └── d1_mini_ecg.ino            # Direct USB Serial OTG 250 Hz firmware
+├── frontend/
+│   ├── android/                       # Android native project with USB host permissions
+│   ├── lib/
+│   │   ├── main.dart                  # App entry point & Riverpod Scope
+│   │   ├── dashboard.dart             # Export barrel
+│   │   └── src/
+│   │       ├── dsp/                   # In-app DSP pipeline, filters & ECG simulator
+│   │       │   ├── ecg_dsp_pipeline.dart
+│   │       │   └── ecg_simulator.dart
+│   │       ├── models/                # Cardiac metrics, events, state & config
+│   │       │   ├── cardiac_metrics.dart
+│   │       │   ├── connection_config.dart
+│   │       │   └── telemetry_state.dart
+│   │       ├── providers/             # Riverpod 3.x telemetry & config state notifiers
+│   │       │   ├── config_provider.dart
+│   │       │   └── telemetry_provider.dart
+│   │       ├── services/              # USB Serial OTG device manager & parser
+│   │       │   └── usb_serial_service.dart
+│   │       └── ui/                    # Clinical screens & oscilloscope widgets
+│   │           ├── screens/
+│   │           │   ├── dashboard_screen.dart
+│   │           │   └── config_screen.dart
+│   │           └── widgets/
+│   │               ├── blinking_heartbeat_dot.dart
+│   │               ├── clinical_vitals_bar.dart
+│   │               ├── ecg_control_toolbar.dart
+│   │               ├── ecg_oscilloscope_painter.dart
+│   │               └── event_log_list.dart
+│   ├── test/
+│   │   └── widget_test.dart           # Full unit & UI widget test suite
+│   └── pubspec.yaml                   # Direct dependencies (no gRPC/protobuf/backend)
+└── Makefile                           # Root commands (test, analyze, fe-run, build-apk)
 ```
 
+---
+
+## 📜 License
+MIT License.

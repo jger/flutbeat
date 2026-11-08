@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/cardiac_metrics.dart';
 import '../models/connection_config.dart';
 
 part 'config_provider.g.dart';
@@ -12,7 +13,7 @@ SharedPreferences sharedPreferences(Ref ref) {
 
 @Riverpod(keepAlive: true)
 class Config extends _$Config {
-  static const _key = 'connection_config_v1';
+  static const _key = 'connection_config_v2';
 
   @override
   ConnectionConfig build() {
@@ -23,7 +24,6 @@ class Config extends _$Config {
         final decoded = jsonDecode(raw) as Map<String, dynamic>;
         return ConnectionConfig.fromJson(decoded);
       } catch (_) {
-        // Fallback to default
         return const ConnectionConfig();
       }
     }
@@ -31,6 +31,11 @@ class Config extends _$Config {
   }
 
   Future<void> updateConfig({
+    int? baudRate,
+    String? selectedDeviceName,
+    bool clearDeviceName = false,
+    SourceMode? sourceMode,
+    int? targetSimBpm,
     String? host,
     int? port,
     String? clientId,
@@ -38,6 +43,11 @@ class Config extends _$Config {
   }) async {
     final prefs = ref.read(sharedPreferencesProvider);
     final updated = state.copyWith(
+      baudRate: baudRate,
+      selectedDeviceName: selectedDeviceName,
+      clearDeviceName: clearDeviceName,
+      sourceMode: sourceMode,
+      targetSimBpm: targetSimBpm,
       host: host,
       port: port,
       clientId: clientId,
@@ -54,4 +64,3 @@ class Config extends _$Config {
     await prefs.setString(_key, jsonEncode(defaults.toJson()));
   }
 }
-

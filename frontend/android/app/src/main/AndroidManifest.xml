@@ -2,6 +2,9 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
+    <!-- Direct USB Serial OTG communication with microcontroller (ESP8266 / ESP32) -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
     <application
         android:label="minimum_hw_project_flutter"
         android:name="${applicationName}"

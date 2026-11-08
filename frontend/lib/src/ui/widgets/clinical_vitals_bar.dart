@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../generated/telemetry.pb.dart';
+import '../../models/cardiac_metrics.dart';
 import '../../models/telemetry_state.dart';
 
 class ClinicalVitalsBar extends StatefulWidget {
@@ -68,7 +68,7 @@ class _ClinicalVitalsBarState extends State<ClinicalVitalsBar>
           rrMs: metrics.rrIntervalMs,
           sdnnMs: metrics.hrvSdnnMs,
           rmssdMs: metrics.hrvRmssdMs,
-          totalBeats: metrics.totalBeats.toInt(),
+          totalBeats: metrics.totalBeats,
           isLeadOff: isLeadOff,
         );
 
@@ -134,10 +134,10 @@ class _HeartRateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (rhythmText, rhythmColor) = switch (rhythm) {
-      RhythmClassification.NORMAL_SINUS => ('NORMAL SINUS', const Color(0xFF10B981)),
-      RhythmClassification.BRADYCARDIA => ('BRADYCARDIA', const Color(0xFFF59E0B)),
-      RhythmClassification.TACHYCARDIA => ('TACHYCARDIA', const Color(0xFFD946EF)),
-      RhythmClassification.IRREGULAR_ARRHYTHMIA => ('IRREGULAR', const Color(0xFFEF4444)),
+      RhythmClassification.normalSinus => ('NORMAL SINUS', const Color(0xFF10B981)),
+      RhythmClassification.bradycardia => ('BRADYCARDIA', const Color(0xFFF59E0B)),
+      RhythmClassification.tachycardia => ('TACHYCARDIA', const Color(0xFFD946EF)),
+      RhythmClassification.irregularArrhythmia => ('IRREGULAR', const Color(0xFFEF4444)),
       _ => ('NO SIGNAL', const Color(0xFF6B7280)),
     };
 
@@ -382,15 +382,14 @@ class _SignalStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final loPlusOk = leadStatus != LeadStatus.LEAD_OFF_POSITIVE &&
-        leadStatus != LeadStatus.LEAD_OFF_BOTH;
-    final loMinusOk = leadStatus != LeadStatus.LEAD_OFF_NEGATIVE &&
-        leadStatus != LeadStatus.LEAD_OFF_BOTH;
+    final loPlusOk = leadStatus != LeadStatus.leadOffPositive &&
+        leadStatus != LeadStatus.leadOffBoth;
+    final loMinusOk = leadStatus != LeadStatus.leadOffNegative &&
+        leadStatus != LeadStatus.leadOffBoth;
 
     final sourceLabel = switch (sourceMode) {
-      SourceMode.UDP_WIFI => 'UDP (D1)',
-      SourceMode.USB_SERIAL => 'USB SERIAL',
-      _ => 'SIMULATOR',
+      SourceMode.usbSerial => 'USB OTG',
+      SourceMode.simulator => 'SIMULATOR',
     };
 
     return Container(

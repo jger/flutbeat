@@ -87,7 +87,7 @@ final class ConfigProvider extends $NotifierProvider<Config, ConnectionConfig> {
   }
 }
 
-String _$configHash() => r'9c47deb6e762075820b70991cad85aa267065426';
+String _$configHash() => r'8a6e1e7b5217eb15227c2cc11cb9da09857feb0a';
 
 abstract class _$Config extends $Notifier<ConnectionConfig> {
   ConnectionConfig build();

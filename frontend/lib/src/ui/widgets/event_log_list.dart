@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../generated/telemetry.pb.dart';
+import '../../models/cardiac_metrics.dart';
 import '../../providers/telemetry_provider.dart';
 
 class EventLogList extends ConsumerStatefulWidget {
@@ -138,16 +138,13 @@ class _EventLogListState extends ConsumerState<EventLogList> {
       separatorBuilder: (_, _) => const SizedBox(height: 6),
       itemBuilder: (context, index) {
         final ev = events[index];
-        final ts = DateTime.fromMillisecondsSinceEpoch(ev.timestampUnixMillis.toInt());
+        final ts = DateTime.fromMillisecondsSinceEpoch(ev.timestampUnixMillis);
 
-        final (badgeText, badgeColor) = switch (ev.eventType) {
-          CardiacEventType.R_PEAK_DETECTED => ('R-PEAK', const Color(0xFF00FF88)),
-          CardiacEventType.LEAD_OFF_TRIGGERED => ('LEAD-OFF', const Color(0xFFEF4444)),
-          CardiacEventType.LEAD_RECONNECTED => ('LEAD-OK', const Color(0xFF10B981)),
-          CardiacEventType.BRADYCARDIA_TRIGGERED => ('BRADY', const Color(0xFFF59E0B)),
-          CardiacEventType.TACHYCARDIA_TRIGGERED => ('TACHY', const Color(0xFFD946EF)),
-          CardiacEventType.SOURCE_MODE_SWITCHED => ('SOURCE', const Color(0xFF38BDF8)),
-          _ => ('EVENT', Colors.white54),
+        final (badgeText, badgeColor) = switch (ev.type) {
+          CardiacEventType.rPeak => ('R-PEAK', const Color(0xFF00FF88)),
+          CardiacEventType.leadOff => ('LEAD-OFF', const Color(0xFFEF4444)),
+          CardiacEventType.leadRestored => ('LEAD-OK', const Color(0xFF10B981)),
+          CardiacEventType.arrhythmiaAlert => ('ALERT', const Color(0xFFF59E0B)),
         };
 
         return Container(
@@ -227,14 +224,13 @@ class _EventLogListState extends ConsumerState<EventLogList> {
       separatorBuilder: (_, _) => const SizedBox(height: 4),
       itemBuilder: (context, index) {
         final log = logs[index];
-        final ts = DateTime.fromMillisecondsSinceEpoch(log.timestampUnixMillis.toInt());
+        final ts = DateTime.fromMillisecondsSinceEpoch(log.timestampUnixMillis);
 
         final levelColor = switch (log.level) {
-          LogLevel.DEBUG => const Color(0xFF38BDF8),
-          LogLevel.INFO => const Color(0xFF10B981),
-          LogLevel.WARN => const Color(0xFFF59E0B),
-          LogLevel.ERROR => const Color(0xFFEF4444),
-          _ => Colors.white54,
+          LogLevel.debug => const Color(0xFF38BDF8),
+          LogLevel.info => const Color(0xFF10B981),
+          LogLevel.warn => const Color(0xFFF59E0B),
+          LogLevel.error => const Color(0xFFEF4444),
         };
 
         return Padding(

@@ -1,7 +1,10 @@
 /*
  * ==============================================================================
- * FlutBeat — AD8232 ECG Telemetry Firmware for WeMos D1 Mini (ESP8266)
+ * FlutBeat — Direct USB Serial OTG ECG Firmware for ESP (WeMos D1 Mini / ESP32)
  * ==============================================================================
+ *
+ * Direct Hardware-to-Mobile Connection (No Backend & No Wi-Fi required):
+ * Connects directly to the Android phone/tablet via a physical USB-C OTG cable.
  *
  * Pin Connections (AD8232 Heart Monitor <-> WeMos D1 Mini ESP8266):
  * ------------------------------------------------------------------
@@ -14,136 +17,75 @@
  * LO-        | D6          | GPIO12       | Lead-Off Detection (-) [Active HIGH]
  * SDN        | D7          | GPIO13       | Shutdown control (Driven HIGH)
  *
- * Networking:
- * Streams 250 Hz batched ECG samples over Wi-Fi UDP (port 50052)
- * to the FlutBeat Rust backend (flutbeat_backend).
- * Also streams CSV output to USB Serial (74880 baud).
+ * Serial Protocol:
+ * Streams 250 Hz CSV frames over USB Serial at 115200 baud (8-N-1):
+ *   "<adc_value>,<lo_plus>,<lo_minus>\n"
+ *   e.g.: "512,0,0\n"
  * ==============================================================================
  */
 
-#include <ESP8266WiFi.h>
-#include <WiFiUdp.h>
+#include <Arduino.h>
 
 // -----------------------------------------------------------------------------
-// User Configuration — Update your Wi-Fi credentials & Host IP
+// Hardware Pin Definitions (WeMos D1 Mini / ESP8266)
 // -----------------------------------------------------------------------------
-#if __has_include("secrets.h")
-  #include "secrets.h"
-#else
-  const char* WIFI_SSID     = "YOUR_WIFI_SSID";
-  const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-  const char* TARGET_HOST_IP = "YOUR_COMPUTER_IP";
-  const uint16_t UDP_PORT    = 50052;
+#ifndef PIN_ECG_ANALOG
+  #define PIN_ECG_ANALOG  A0      // ADC0 (0 - 1023, 0 - 3.2V)
+#endif
+
+#ifndef PIN_LEAD_OFF_P
+  #define PIN_LEAD_OFF_P  D5      // GPIO14 (LO+)
+#endif
+
+#ifndef PIN_LEAD_OFF_N
+  #define PIN_LEAD_OFF_N  D6      // GPIO12 (LO-)
+#endif
+
+#ifndef PIN_SHUTDOWN
+  #define PIN_SHUTDOWN    D7      // GPIO13 (SDN)
+#endif
+
+#ifndef PIN_STATUS_LED
+  #define PIN_STATUS_LED  D4      // Built-in LED (GPIO2, active LOW)
 #endif
 
 // -----------------------------------------------------------------------------
-// Hardware Pin Definitions
+// Sampling Parameters: 250 Hz = 4000 microseconds per sample
 // -----------------------------------------------------------------------------
-#define PIN_ECG_ANALOG  A0      // ADC0 (0 - 1023, 0 - 3.2V on D1 Mini)
-#define PIN_LEAD_OFF_P  D5      // GPIO14 (LO+)
-#define PIN_LEAD_OFF_N  D6      // GPIO12 (LO-)
-#define PIN_SHUTDOWN    D7      // GPIO13 (SDN)
-#define PIN_STATUS_LED  D4      // Built-in LED on D1 Mini / ESP-12F (GPIO2, active LOW)
-
-// -----------------------------------------------------------------------------
-// Sampling Parameters
-// -----------------------------------------------------------------------------
-// 250 Hz = 4000 microseconds per sample
 const unsigned long SAMPLE_INTERVAL_MICROS = 4000;
-const int BATCH_SIZE = 10; // Send UDP packet every 10 samples (40 ms)
-
-struct EcgPoint {
-  uint16_t adc;
-  uint8_t lo_plus;
-  uint8_t lo_minus;
-};
-
-EcgPoint sampleBuffer[BATCH_SIZE];
-int bufferIndex = 0;
 unsigned long lastSampleMicros = 0;
-uint32_t packetSequence = 0;
-
-WiFiUDP udp;
 
 void flashLeds(int times, int delayMs) {
   for (int i = 0; i < times; i++) {
     digitalWrite(PIN_STATUS_LED, LOW); // LED ON
-    #ifdef D0
-    digitalWrite(D0, LOW);
-    #endif
     delay(delayMs);
     digitalWrite(PIN_STATUS_LED, HIGH); // LED OFF
-    #ifdef D0
-    digitalWrite(D0, HIGH);
-    #endif
     delay(delayMs);
   }
 }
 
 void setup() {
-  // Use 74880 baud to match the ESP8266 hardware bootloader seamlessly!
-  Serial.begin(74880);
-  delay(300);
+  // High-speed USB Serial OTG communication
+  Serial.begin(115200);
+  delay(100);
 
-  // Configure Status LEDs
+  // Configure Status LED
   pinMode(PIN_STATUS_LED, OUTPUT);
-  #ifdef D0
-  pinMode(D0, OUTPUT);
-  #endif
-
-  // 5 Fast visual confirmation blinks at startup (ON for 80ms, OFF for 80ms)
-  flashLeds(5, 80);
-
-  Serial.println();
-  Serial.println(F("=================================================="));
-  Serial.println(F("  ❤️  FlutBeat — AD8232 ECG Firmware (D1 Mini)   "));
-  Serial.println(F("  Baud Rate: 74880 baud | Sampling: 250 Hz        "));
-  Serial.println(F("=================================================="));
-  Serial.println(F("[BOOT] Hardware initialized. Starting Wi-Fi setup..."));
+  flashLeds(3, 60); // 3 rapid blinks to signal boot ready
 
   // Configure AD8232 sensor pins
   pinMode(PIN_LEAD_OFF_P, INPUT);
   pinMode(PIN_LEAD_OFF_N, INPUT);
   pinMode(PIN_SHUTDOWN, OUTPUT);
-  digitalWrite(PIN_SHUTDOWN, HIGH); // Enable AD8232 front-end
+  digitalWrite(PIN_SHUTDOWN, HIGH); // Enable AD8232 front-end amplifier
 
-  // Clean Wi-Fi initialization
-  WiFi.persistent(false);
-  WiFi.disconnect(true);
-  delay(100);
-  WiFi.mode(WIFI_STA);
-  WiFi.setAutoConnect(false);
-
-  Serial.printf("[WIFI] Connecting to SSID: '%s' ...\n", WIFI_SSID);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 25) {
-    delay(300);
-    digitalWrite(PIN_STATUS_LED, !digitalRead(PIN_STATUS_LED)); // Toggle LED while waiting
-    Serial.print(F("."));
-    attempts++;
-  }
-  Serial.println();
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.printf("[WIFI] Connected! Board IP: %s\n", WiFi.localIP().toString().c_str());
-    Serial.printf("[WIFI] Streaming UDP batches to %s:%u\n", TARGET_HOST_IP, UDP_PORT);
-    digitalWrite(PIN_STATUS_LED, LOW); // Solid ON when connected to Wi-Fi
-  } else {
-    Serial.printf("[WIFI] Connection failed (status: %d). Continuing in USB Serial mode.\n", WiFi.status());
-    digitalWrite(PIN_STATUS_LED, HIGH);
-  }
-
-  udp.begin(UDP_PORT);
   lastSampleMicros = micros();
-  Serial.println(F("[RUN] ADC sampling loop active @ 250 Hz."));
 }
 
 void loop() {
   unsigned long currentMicros = micros();
 
-  // 1. Continuous Heartbeat LED blink: Toggles every 500 ms (1 Hz pulse)
+  // 1. Continuous Heartbeat Pulse LED: toggles every 500 ms (1 Hz visual pulse)
   static unsigned long lastBlinkMs = 0;
   if (millis() - lastBlinkMs >= 500) {
     lastBlinkMs = millis();
@@ -154,59 +96,21 @@ void loop() {
   if (currentMicros - lastSampleMicros >= SAMPLE_INTERVAL_MICROS) {
     lastSampleMicros += SAMPLE_INTERVAL_MICROS;
 
-    // Read AD8232 analog voltage on A0
+    // Read analog ECG voltage (0..1023)
     uint16_t adcVal = analogRead(PIN_ECG_ANALOG);
 
     // Read Lead-Off detection pins
     uint8_t loP = (digitalRead(PIN_LEAD_OFF_P) == HIGH) ? 1 : 0;
     uint8_t loN = (digitalRead(PIN_LEAD_OFF_N) == HIGH) ? 1 : 0;
 
-    // Store in batch buffer
-    sampleBuffer[bufferIndex].adc = adcVal;
-    sampleBuffer[bufferIndex].lo_plus = loP;
-    sampleBuffer[bufferIndex].lo_minus = loN;
-    bufferIndex++;
-
-    // Print to USB Serial for Serial Plotter / Monitor (ADC, LO+, LO-)
-    Serial.printf("%u,%u,%u\n", adcVal, loP * 1023, loN * 1023);
-
-    // When batch buffer is full, transmit over UDP
-    if (bufferIndex >= BATCH_SIZE) {
-      if (WiFi.status() == WL_CONNECTED) {
-        sendUdpBatch();
-      }
-      bufferIndex = 0;
-    }
+    // Stream raw CSV sample directly to the Flutter app via USB OTG
+    // Format: "adc,lo_plus,lo_minus\n"
+    Serial.print(adcVal);
+    Serial.print(',');
+    Serial.print(loP);
+    Serial.print(',');
+    Serial.println(loN);
   }
 
-  // Yield to ESP8266 background Wi-Fi housekeeping
   yield();
-}
-
-void sendUdpBatch() {
-  packetSequence++;
-
-  // Construct compact JSON payload
-  // e.g.: {"seq":1,"ts":12345,"s":[[512,0,0],[515,0,0],...]}
-  char packet[512];
-  int offset = snprintf(packet, sizeof(packet),
-    "{\"seq\":%u,\"ts\":%lu,\"s\":[",
-    packetSequence, millis()
-  );
-
-  for (int i = 0; i < BATCH_SIZE; i++) {
-    offset += snprintf(packet + offset, sizeof(packet) - offset,
-      "[%u,%u,%u]%s",
-      sampleBuffer[i].adc,
-      sampleBuffer[i].lo_plus,
-      sampleBuffer[i].lo_minus,
-      (i == BATCH_SIZE - 1) ? "" : ","
-    );
-  }
-
-  snprintf(packet + offset, sizeof(packet) - offset, "]}");
-
-  udp.beginPacket(TARGET_HOST_IP, UDP_PORT);
-  udp.write(packet);
-  udp.endPacket();
 }

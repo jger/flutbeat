@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/cardiac_metrics.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/telemetry_provider.dart';
 import '../widgets/blinking_heartbeat_dot.dart';
@@ -25,6 +26,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final notifier = ref.read(telemetryProvider.notifier);
     final config = ref.watch(configProvider);
 
+    final statusSubtitle = telemetry.sourceMode == SourceMode.usbSerial
+        ? 'USB OTG: ${telemetry.connectedDeviceName ?? "Direct ESP"} (${config.baudRate} baud)'
+        : 'Simulator Mode (${config.targetSimBpm} BPM)';
+
     return Scaffold(
       backgroundColor: const Color(0xFF090D15),
       appBar: AppBar(
@@ -39,10 +44,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               children: [
                 const Icon(Icons.monitor_heart_rounded, color: Color(0xFF00FF88), size: 18),
                 const SizedBox(width: 8),
-                Flexible(
+                const Flexible(
                   child: Text(
                     'FlutBeat ECG Monitor',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.2,
@@ -54,7 +59,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ],
             ),
             Text(
-              '${config.host}:${config.port}',
+              statusSubtitle,
               style: const TextStyle(
                 fontSize: 11,
                 color: Colors.white54,
@@ -72,12 +77,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           // Reconnect Button
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Reconnect to Hardware Node',
+            tooltip: 'Reconnect to ESP USB OTG',
             onPressed: () {
               notifier.reconnect();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Reconnecting to FlutBeat node...'),
+                  content: Text('Reconnecting to ESP device...'),
                   duration: Duration(seconds: 1),
                   behavior: SnackBarBehavior.floating,
                 ),
@@ -88,7 +93,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           // Settings Button
           IconButton(
             icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Connection Settings',
+            tooltip: 'USB Connection Settings',
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ConfigScreen()),

@@ -1,5 +1,4 @@
-import 'package:fixnum/fixnum.dart' as $fixnum;
-import '../generated/telemetry.pb.dart';
+import 'cardiac_metrics.dart';
 
 enum ConnectionStatus {
   disconnected,
@@ -9,7 +8,7 @@ enum ConnectionStatus {
 }
 
 enum SweepMode {
-  eraseBarSweep,    // Classic ICU monitor: cursor moves L->R overwriting trace
+  eraseBarSweep, // Classic ICU monitor: cursor moves L->R overwriting trace
   continuousScroll, // Continuous left-scrolling trace
 }
 
@@ -73,7 +72,7 @@ class TelemetryState {
     this.connectionStatus = ConnectionStatus.disconnected,
     this.errorMessage,
     CardiacMetrics? metrics,
-    this.sourceMode = SourceMode.SIMULATOR,
+    this.sourceMode = SourceMode.usbSerial,
     List<EcgPointData>? buffer,
     this.cursorIndex = 0,
     this.cardiacEvents = const [],
@@ -87,16 +86,9 @@ class TelemetryState {
     this.isFrozen = false,
     this.totalSamples = 0,
     this.targetSimBpm = 72,
-  })  : metrics = metrics ?? CardiacMetrics(
-          heartRateBpm: 72,
-          rrIntervalMs: 833,
-          hrvSdnnMs: 38.0,
-          hrvRmssdMs: 29.0,
-          leadStatus: LeadStatus.LEADS_CONNECTED,
-          rhythm: RhythmClassification.NORMAL_SINUS,
-          signalQualityPercent: 98,
-          totalBeats: $fixnum.Int64.ZERO,
-        ),
+    this.connectedDeviceName,
+    this.baudRate = 115200,
+  })  : metrics = metrics ?? const CardiacMetrics(),
         buffer = buffer ?? List.filled(1250, EcgPointData.zero);
 
   static const int bufferCapacity = 1250; // 5.0 seconds @ 250 Hz
@@ -120,11 +112,11 @@ class TelemetryState {
   final bool isFrozen;
   final int totalSamples;
   final int targetSimBpm;
+  final String? connectedDeviceName;
+  final int baudRate;
 
   bool get isConnected => connectionStatus == ConnectionStatus.connected;
-  bool get isLeadOff =>
-      metrics.leadStatus != LeadStatus.LEADS_CONNECTED &&
-      metrics.leadStatus != LeadStatus.LEAD_STATUS_UNSPECIFIED;
+  bool get isLeadOff => metrics.leadStatus != LeadStatus.leadsConnected;
 
   TelemetryState copyWith({
     ConnectionStatus? connectionStatus,
@@ -145,6 +137,9 @@ class TelemetryState {
     bool? isFrozen,
     int? totalSamples,
     int? targetSimBpm,
+    String? connectedDeviceName,
+    bool clearDeviceName = false,
+    int? baudRate,
   }) {
     return TelemetryState(
       connectionStatus: connectionStatus ?? this.connectionStatus,
@@ -164,6 +159,10 @@ class TelemetryState {
       isFrozen: isFrozen ?? this.isFrozen,
       totalSamples: totalSamples ?? this.totalSamples,
       targetSimBpm: targetSimBpm ?? this.targetSimBpm,
+      connectedDeviceName: clearDeviceName
+          ? null
+          : (connectedDeviceName ?? this.connectedDeviceName),
+      baudRate: baudRate ?? this.baudRate,
     );
   }
 }
