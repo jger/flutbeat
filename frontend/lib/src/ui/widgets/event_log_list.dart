@@ -56,28 +56,37 @@ class _EventLogListState extends ConsumerState<EventLogList> {
                   ),
                   const SizedBox(width: 8),
 
-                  // Tab Buttons
-                  _HeaderTab(
-                    label: 'CARDIAC EVENTS',
-                    count: events.length,
-                    selected: _activeTab == 0,
-                    onTap: () {
-                      if (!widget.isExpanded) widget.onToggleExpanded();
-                      setState(() => _activeTab = 0);
-                    },
+                  // Tab Buttons (horizontally scrollable if screen is narrow)
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _HeaderTab(
+                            label: 'CARDIAC EVENTS',
+                            count: events.length,
+                            selected: _activeTab == 0,
+                            onTap: () {
+                              if (!widget.isExpanded) widget.onToggleExpanded();
+                              setState(() => _activeTab = 0);
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _HeaderTab(
+                            label: 'SYSTEM LOGS',
+                            count: logs.length,
+                            selected: _activeTab == 1,
+                            onTap: () {
+                              if (!widget.isExpanded) widget.onToggleExpanded();
+                              setState(() => _activeTab = 1);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  _HeaderTab(
-                    label: 'SYSTEM LOGS',
-                    count: logs.length,
-                    selected: _activeTab == 1,
-                    onTap: () {
-                      if (!widget.isExpanded) widget.onToggleExpanded();
-                      setState(() => _activeTab = 1);
-                    },
-                  ),
-
-                  const Spacer(),
+                  const SizedBox(width: 4),
 
                   // Clear button
                   IconButton(

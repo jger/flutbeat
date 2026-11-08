@@ -78,7 +78,17 @@ class _ClinicalVitalsBarState extends State<ClinicalVitalsBar>
           sourceMode: widget.state.sourceMode,
         );
 
-        if (isNarrow) {
+        if (constraints.maxWidth < 340) {
+          return Column(
+            children: [
+              card1,
+              const SizedBox(height: 8),
+              card2,
+              const SizedBox(height: 8),
+              card3,
+            ],
+          );
+        } else if (isNarrow) {
           return Column(
             children: [
               card1,
@@ -235,7 +245,7 @@ class _HrvMetricsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF141923),
         borderRadius: BorderRadius.circular(14),
@@ -248,22 +258,30 @@ class _HrvMetricsCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'CARDIAC METRICS',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white38,
-                  letterSpacing: 0.8,
+              const Flexible(
+                child: Text(
+                  'CARDIAC METRICS',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white38,
+                    letterSpacing: 0.8,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Text(
-                'BEATS: $totalBeats',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF38BDF8),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  'BEATS: $totalBeats',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF38BDF8),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
                 ),
               ),
             ],
@@ -272,20 +290,28 @@ class _HrvMetricsCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _MetricItem(
-                label: 'R-R INT',
-                value: isLeadOff ? '--' : '$rrMs ms',
-                color: const Color(0xFF00E5FF),
+              Expanded(
+                child: _MetricItem(
+                  label: 'R-R INT',
+                  value: isLeadOff ? '--' : '$rrMs ms',
+                  color: const Color(0xFF00E5FF),
+                ),
               ),
-              _MetricItem(
-                label: 'SDNN',
-                value: isLeadOff ? '--' : '${sdnnMs.toStringAsFixed(1)} ms',
-                color: const Color(0xFFA78BFA),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _MetricItem(
+                  label: 'SDNN',
+                  value: isLeadOff ? '--' : '${sdnnMs.toStringAsFixed(1)} ms',
+                  color: const Color(0xFFA78BFA),
+                ),
               ),
-              _MetricItem(
-                label: 'RMSSD',
-                value: isLeadOff ? '--' : '${rmssdMs.toStringAsFixed(1)} ms',
-                color: const Color(0xFFF472B6),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _MetricItem(
+                  label: 'RMSSD',
+                  value: isLeadOff ? '--' : '${rmssdMs.toStringAsFixed(1)} ms',
+                  color: const Color(0xFFF472B6),
+                ),
               ),
             ],
           ),
@@ -312,22 +338,30 @@ class _MetricItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            color: Colors.white54,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: Colors.white54,
+            ),
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.w800,
-            color: color,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
           ),
         ),
       ],
@@ -354,13 +388,13 @@ class _SignalStatusCard extends StatelessWidget {
         leadStatus != LeadStatus.LEAD_OFF_BOTH;
 
     final sourceLabel = switch (sourceMode) {
-      SourceMode.UDP_WIFI => 'D1 MINI (UDP)',
+      SourceMode.UDP_WIFI => 'UDP (D1)',
       SourceMode.USB_SERIAL => 'USB SERIAL',
-      _ => 'SYNTHETIC SIM',
+      _ => 'SIMULATOR',
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF141923),
         borderRadius: BorderRadius.circular(14),
@@ -373,22 +407,30 @@ class _SignalStatusCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'LEAD DETECTION',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white38,
-                  letterSpacing: 0.8,
+              const Flexible(
+                child: Text(
+                  'LEAD DETECTION',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white38,
+                    letterSpacing: 0.8,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Text(
-                sourceLabel,
-                style: const TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF38BDF8),
-                  letterSpacing: 0.4,
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  sourceLabel,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF38BDF8),
+                    letterSpacing: 0.4,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
                 ),
               ),
             ],
@@ -396,19 +438,26 @@ class _SignalStatusCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              _LeadPill(label: 'LO+ (D5)', isOk: loPlusOk),
-              const SizedBox(width: 8),
-              _LeadPill(label: 'LO- (D6)', isOk: loMinusOk),
+              Flexible(
+                child: _LeadPill(label: 'LO+ (D5)', isOk: loPlusOk),
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: _LeadPill(label: 'LO- (D6)', isOk: loMinusOk),
+              ),
               const Spacer(),
-              Text(
-                '$signalQuality%',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w800,
-                  color: signalQuality > 80
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFEF4444),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '$signalQuality%',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w800,
+                    color: signalQuality > 80
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFEF4444),
+                  ),
                 ),
               ),
             ],
@@ -429,7 +478,7 @@ class _LeadPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isOk ? const Color(0xFF10B981) : const Color(0xFFEF4444);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
@@ -444,12 +493,17 @@ class _LeadPill extends StatelessWidget {
             decoration: BoxDecoration(shape: BoxShape.circle, color: color),
           ),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              color: color,
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+              ),
             ),
           ),
         ],

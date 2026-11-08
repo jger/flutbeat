@@ -181,16 +181,28 @@ The Rust backend includes a built-in **McSharry-inspired P-Q-R-S-T Synthetic ECG
 ```bash
 cd backend
 
-# Run with built-in simulator (default 72 BPM):
-cargo run --bin ecg_node
+# Run with built-in simulator test signal (default 72 BPM):
+make test-signal
+
+# Custom test signals:
+make test-signal BPM=100
+make test-signal-brady    # 48 BPM Bradycardia test
+make test-signal-tachy    # 135 BPM Tachycardia test
+make test-signal-leadoff  # Electrode disconnect alert test
 
 # Or listen for real WeMos D1 Mini UDP packets on port 50052:
 cargo run --bin ecg_node -- --mode udp
 ```
 
 ### 2. Available Make Commands
-Run `make help` inside `backend/` to view all tasks:
+Run `make help` (from the repository root or inside `backend/`) to view all tasks:
 ```text
+  test-signal            Run BE generating synthetic ECG test signal for FE (default: BPM=72, PORT=50051)
+  test-signal-brady      Run BE test signal with Bradycardia (48 BPM) for FE alert testing
+  test-signal-tachy      Run BE test signal with Tachycardia (135 BPM) for FE alert testing
+  test-signal-leadoff    Run BE test signal with Lead-Off disconnect condition for FE alert testing
+  send-test-signal       Stream UDP test signal packets into running BE (simulates WeMos D1 Mini)
+  sim                    Alias for test-signal
   build                  Build debug binaries (ecg_node, ecg_receiver)
   build-release          Build optimized release binaries
   run-node               Run FlutBeat ECG gRPC server & simulator daemon

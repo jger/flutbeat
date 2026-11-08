@@ -39,12 +39,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               children: [
                 const Icon(Icons.monitor_heart_rounded, color: Color(0xFF00FF88), size: 18),
                 const SizedBox(width: 8),
-                const Text(
-                  'FlutBeat ECG Monitor',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.2,
+                Flexible(
+                  child: Text(
+                    'FlutBeat ECG Monitor',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.2,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
               ],
@@ -56,6 +60,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 color: Colors.white54,
                 fontFamily: 'monospace',
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ],
         ),

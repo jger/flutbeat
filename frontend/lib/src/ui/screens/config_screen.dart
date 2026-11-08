@@ -75,7 +75,7 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Reset to default values (192.168.178.33:50051)'),
+          content: Text('Reset to default values (127.0.0.1:50051)'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -162,6 +162,36 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
                   }
                   return null;
                 },
+              ),
+              const SizedBox(height: 8),
+
+              // Quick Presets
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  ActionChip(
+                    avatar: const Icon(Icons.computer_outlined, size: 14),
+                    label: const Text('127.0.0.1 (Localhost / ADB)', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      setState(() => _hostController.text = '127.0.0.1');
+                    },
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.phone_android_outlined, size: 14),
+                    label: const Text('10.0.2.2 (Android Emulator)', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      setState(() => _hostController.text = '10.0.2.2');
+                    },
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.wifi_outlined, size: 14),
+                    label: const Text('192.168.178.37 (Host LAN)', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      setState(() => _hostController.text = '192.168.178.37');
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 

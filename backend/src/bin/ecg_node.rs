@@ -33,6 +33,10 @@ struct Args {
     /// Initial target simulator BPM (40 - 180)
     #[arg(short, long, default_value_t = 72)]
     bpm: u32,
+
+    /// Start with lead-off simulation active (simulates disconnected electrodes)
+    #[arg(short, long, default_value_t = false)]
+    lead_off: bool,
 }
 
 #[tokio::main]
@@ -56,6 +60,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let mut sim = state.simulator.lock().await;
         sim.set_target_bpm(args.bpm);
+        if args.lead_off {
+            sim.set_lead_off(true);
+        }
+    }
+
+    if initial_mode == SourceMode::Simulator {
+        println!("{}", "  📡 TEST SIGNAL GENERATOR ACTIVE FOR FRONTEND".bright_cyan().bold());
+        println!("  • Ingestion Mode:  {}", "Synthetic PQRST ECG Simulator".bright_green());
+        println!("  • Target Rate:     {} BPM", args.bpm.to_string().yellow().bold());
+        println!(
+            "  • Electrode State: {}",
+            if args.lead_off {
+                "LO+ / LO- Disconnected (LEAD-OFF ALARM)".bright_red().bold()
+            } else {
+                "Leads Attached (NORMAL)".green()
+            }
+        );
+        println!("  • gRPC Service:    {}", format!("http://0.0.0.0:{}", args.port).cyan());
+        println!("  • Flutter FE:      Configure host to 127.0.0.1 (or LAN IP) port {}", args.port);
+        println!("{}", "==================================================".bright_red());
     }
 
     // 1. Spawn Wi-Fi UDP background receiver

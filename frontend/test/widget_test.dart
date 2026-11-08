@@ -20,7 +20,7 @@ void main() {
   group('ConnectionConfig Model Tests', () {
     test('Default values are correct', () {
       const config = ConnectionConfig();
-      expect(config.host, '192.168.178.33');
+      expect(config.host, '127.0.0.1');
       expect(config.port, 50051);
       expect(config.clientId, 'flutter-dashboard');
       expect(config.useTls, false);
@@ -67,7 +67,7 @@ void main() {
 
       // Verify AppBar elements
       expect(find.text('FlutBeat ECG Monitor'), findsOneWidget);
-      expect(find.text('192.168.178.33:50051'), findsOneWidget);
+      expect(find.text('127.0.0.1:50051'), findsOneWidget);
       expect(find.byType(BlinkingHeartbeatDot), findsOneWidget);
 
       // Verify Clinical Vitals Bar
@@ -93,6 +93,33 @@ void main() {
       expect(find.byType(EventLogList), findsOneWidget);
       expect(find.text('CARDIAC EVENTS'), findsOneWidget);
       expect(find.text('SYSTEM LOGS'), findsOneWidget);
+    });
+
+    testWidgets('Renders cleanly on narrow mobile screen without RenderFlex overflow',
+        (tester) async {
+      // Emulate narrow mobile device (e.g. 360x800)
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            telemetryProvider.overrideWith(() => TelemetryNotifierMock()),
+          ],
+          child: const MaterialApp(
+            home: DashboardScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // No overflow exceptions caught by Flutter tester
+      expect(tester.takeException(), isNull);
+      expect(find.byType(ClinicalVitalsBar), findsOneWidget);
+      expect(find.byType(DashboardScreen), findsOneWidget);
     });
 
     testWidgets('Toggles Freeze button state', (tester) async {

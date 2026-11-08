@@ -82,11 +82,18 @@ class _BlinkingHeartbeatDotState extends ConsumerState<BlinkingHeartbeatDot>
         ? 'Last tick: ${timeFormatter.format(telemetry.lastHeartbeat!)}'
         : 'Awaiting first packet';
 
+    final displayLabel = switch (status) {
+      ConnectionStatus.connected => 'LIVE',
+      ConnectionStatus.connecting => 'SYNC',
+      ConnectionStatus.disconnected => 'OFFLINE',
+      ConnectionStatus.error => 'ERR',
+    };
+
     return Tooltip(
       message: '$statusText\n$lastSeen',
       preferBelow: true,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -121,11 +128,9 @@ class _BlinkingHeartbeatDotState extends ConsumerState<BlinkingHeartbeatDot>
                 );
               },
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
-              status == ConnectionStatus.connected
-                  ? 'LIVE'
-                  : status.name.toUpperCase(),
+              displayLabel,
               style: TextStyle(
                 color: color,
                 fontSize: 11,

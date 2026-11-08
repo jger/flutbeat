@@ -1,6 +1,6 @@
 class ConnectionConfig {
   const ConnectionConfig({
-    this.host = '192.168.178.33',
+    this.host = '127.0.0.1',
     this.port = 50051,
     this.clientId = 'flutter-dashboard',
     this.useTls = false,
@@ -36,7 +36,7 @@ class ConnectionConfig {
 
   factory ConnectionConfig.fromJson(Map<String, dynamic> json) {
     return ConnectionConfig(
-      host: json['host'] as String? ?? '192.168.178.33',
+      host: json['host'] as String? ?? '127.0.0.1',
       port: (json['port'] as num?)?.toInt() ?? 50051,
       clientId: json['clientId'] as String? ?? 'flutter-dashboard',
       useTls: json['useTls'] as bool? ?? false,
