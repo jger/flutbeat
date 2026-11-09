@@ -70,6 +70,7 @@ class _ClinicalVitalsBarState extends State<ClinicalVitalsBar>
           rmssdMs: metrics.hrvRmssdMs,
           totalBeats: metrics.totalBeats,
           isLeadOff: isLeadOff,
+          hasHrv: metrics.hasHrv,
         );
 
         final card3 = _SignalStatusCard(
@@ -135,20 +136,24 @@ class _HeartRateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (rhythmText, rhythmColor) = switch (rhythm) {
       RhythmClassification.normalSinus => (
-        'NORMAL SINUS',
+        'REGULAR INTERVALS',
         const Color(0xFF10B981),
       ),
       RhythmClassification.bradycardia => (
-        'BRADYCARDIA',
+        'RATE BELOW 60',
         const Color(0xFFF59E0B),
       ),
       RhythmClassification.tachycardia => (
-        'TACHYCARDIA',
+        'RATE ABOVE 100',
         const Color(0xFFD946EF),
       ),
       RhythmClassification.irregularArrhythmia => (
-        'IRREGULAR',
+        'VARIABLE INTERVALS',
         const Color(0xFFEF4444),
+      ),
+      RhythmClassification.unspecified => (
+        'RATE ESTIMATE',
+        const Color(0xFF38BDF8),
       ),
       _ => ('NO SIGNAL', const Color(0xFF6B7280)),
     };
@@ -253,6 +258,7 @@ class _HrvMetricsCard extends StatelessWidget {
     required this.rmssdMs,
     required this.totalBeats,
     required this.isLeadOff,
+    required this.hasHrv,
   });
 
   final int rrMs;
@@ -260,6 +266,7 @@ class _HrvMetricsCard extends StatelessWidget {
   final double rmssdMs;
   final int totalBeats;
   final bool isLeadOff;
+  final bool hasHrv;
 
   @override
   Widget build(BuildContext context) {
@@ -312,23 +319,27 @@ class _HrvMetricsCard extends StatelessWidget {
               Expanded(
                 child: _MetricItem(
                   label: 'R-R INT',
-                  value: isLeadOff ? '--' : '$rrMs ms',
+                  value: isLeadOff || rrMs <= 0 ? '--' : '$rrMs ms',
                   color: const Color(0xFF00E5FF),
                 ),
               ),
               const SizedBox(width: 4),
               Expanded(
                 child: _MetricItem(
-                  label: 'SDNN',
-                  value: isLeadOff ? '--' : '${sdnnMs.toStringAsFixed(1)} ms',
+                  label: 'RR SD*',
+                  value: isLeadOff || !hasHrv
+                      ? '--'
+                      : '${sdnnMs.toStringAsFixed(1)} ms',
                   color: const Color(0xFFA78BFA),
                 ),
               ),
               const SizedBox(width: 4),
               Expanded(
                 child: _MetricItem(
-                  label: 'RMSSD',
-                  value: isLeadOff ? '--' : '${rmssdMs.toStringAsFixed(1)} ms',
+                  label: 'RR RMS*',
+                  value: isLeadOff || !hasHrv
+                      ? '--'
+                      : '${rmssdMs.toStringAsFixed(1)} ms',
                   color: const Color(0xFFF472B6),
                 ),
               ),

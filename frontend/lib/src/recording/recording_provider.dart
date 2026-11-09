@@ -69,6 +69,8 @@ class RecordingController extends Notifier<RecordingStatus> {
       'lead_off': point.leadOff,
       'is_r_peak': point.isRPeak,
       'heart_rate_bpm': metrics.heartRateBpm,
+      'hrv_available': metrics.hasHrv,
+      'rr_interval_count': metrics.rrIntervalCount,
       'rr_interval_ms': metrics.rrIntervalMs,
       'sdnn_ms': metrics.hrvSdnnMs,
       'rmssd_ms': metrics.hrvRmssdMs,

@@ -35,7 +35,12 @@ class _EcgOscilloscopeState extends State<EcgOscilloscope> {
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
     final hasValidPulse =
-        state.isConnected && !state.isLeadOff && state.metrics.heartRateBpm > 0;
+        state.isConnected &&
+        !state.isLeadOff &&
+        state.metrics.signalQualityPercent >= 50 &&
+        state.metrics.heartRateBpm > 0;
+    final isNoisy =
+        state.totalSamples >= 250 && state.metrics.signalQualityPercent < 50;
     final status = state.isFrozen
         ? 'FROZEN'
         : !state.isConnected
@@ -44,10 +49,14 @@ class _EcgOscilloscopeState extends State<EcgOscilloscope> {
               : 'DISCONNECTED'
         : state.isLeadOff
         ? 'LEADS OFF'
+        : state.totalSamples < 250
+        ? 'WARMING UP'
+        : isNoisy
+        ? 'NOISY SIGNAL'
         : 'LIVE';
     final statusColor = state.isFrozen
         ? const Color(0xFF38BDF8)
-        : !state.isConnected || state.isLeadOff
+        : !state.isConnected || state.isLeadOff || isNoisy
         ? Colors.amber
         : const Color(0xFF00FF88);
 
@@ -142,7 +151,7 @@ class _EcgOscilloscopeState extends State<EcgOscilloscope> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        'LEAD II  ',
+                        'SINGLE LEAD',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w900,

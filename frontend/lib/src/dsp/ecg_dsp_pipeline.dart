@@ -1,6 +1,8 @@
 import 'dart:collection';
 import 'dart:math' as math;
+
 import '../models/cardiac_metrics.dart';
+import '../analysis/signal_checks.dart';
 
 const double kSampleRateHz = 250.0;
 const double kAdcMax = 1023.0;
@@ -13,7 +15,7 @@ double adcToMv(int rawAdc) {
   return (centered * (kVrefMv / kAdcMax)) / kAd8232Gain;
 }
 
-/// 0.5 Hz High-Pass DC-blocking filter (eliminates baseline drift)
+/// DC blocker: alpha=0.992, approximately 0.32 Hz cutoff at nominal 250 Hz.
 class DcBlocker {
   DcBlocker({this.alpha = 0.992});
 
@@ -125,8 +127,8 @@ class LowPass40Hz {
 /// Pan-Tompkins QRS Detection Engine
 class PanTompkinsDetector {
   PanTompkinsDetector()
-      : mwiWindowSize = (0.12 * kSampleRateHz).round().clamp(1, 100),
-        refractorySamples = (0.26 * kSampleRateHz).round(); // 65 samples = 260 ms
+    : mwiWindowSize = (0.12 * kSampleRateHz).round().clamp(1, 100),
+      refractorySamples = (0.26 * kSampleRateHz).round(); // 65 samples = 260 ms
 
   final int mwiWindowSize;
   final int refractorySamples;
@@ -252,6 +254,8 @@ class EcgDspPipeline {
   final PanTompkinsDetector _detector = PanTompkinsDetector();
 
   int _sampleCount = 0;
+  final _qualityWindow = <double>[];
+  int _signalQuality = 0;
   int? _lastRPeakSample;
   final List<int> _rrIntervalsMs = [];
   int _totalBeats = 0;
@@ -284,11 +288,24 @@ class EcgDspPipeline {
     final notched = _notchFilter.process(dcCleaned);
     final filteredMv = _lowPass.process(notched);
 
+    _qualityWindow.add(rawAdc.toDouble());
+    if (_qualityWindow.length >= 250) {
+      _signalQuality = SignalCheck.fromAdc(_qualityWindow).quality;
+      _qualityWindow.clear();
+    }
+    final canEstimate = !isLeadOff && _signalQuality >= 50;
+    if (!canEstimate) {
+      _detector.reset();
+      _lastRPeakSample = null;
+      _rrIntervalsMs.clear();
+      _currentBpm = 0;
+      _currentRrMs = 0;
+    }
     // 3. Pan-Tompkins QRS Detection
     bool isRPeak = false;
     CardiacEvent? event;
 
-    if (!isLeadOff) {
+    if (canEstimate) {
       isRPeak = _detector.process(filteredMv);
       if (isRPeak) {
         _totalBeats++;
@@ -302,12 +319,14 @@ class EcgDspPipeline {
           if (rrMs >= 260 && rrMs <= 2000) {
             _currentRrMs = rrMs;
             _rrIntervalsMs.add(rrMs);
-            if (_rrIntervalsMs.length > 8) {
+            if (_rrIntervalsMs.length > 75) {
               _rrIntervalsMs.removeAt(0);
             }
 
             // Robust median / trimmed-mean computation to reject outliers
-            final sorted = List<int>.from(_rrIntervalsMs)..sort();
+            final sorted = List<int>.from(
+              _rrIntervalsMs.skip(math.max(0, _rrIntervalsMs.length - 8)),
+            )..sort();
             double avgRr;
             if (sorted.length >= 4) {
               final trimmed = sorted.sublist(1, sorted.length - 1);
@@ -333,6 +352,12 @@ class EcgDspPipeline {
       _lastRPeakSample = null;
     }
 
+    if (_lastRPeakSample != null &&
+        _sampleCount - _lastRPeakSample! > 3 * kSampleRateHz) {
+      _currentBpm = 0;
+      _currentRrMs = 0;
+      _rrIntervalsMs.clear();
+    }
     // Lead status transition events
     if (leadStatus != _lastLeadStatus) {
       if (isLeadOff) {
@@ -354,20 +379,28 @@ class EcgDspPipeline {
     }
 
     // 4. Compute HRV (SDNN & RMSSD)
-    double sdnn = 35.0;
-    double rmssd = 28.0;
+    double sdnn = 0;
+    double rmssd = 0;
 
-    if (_rrIntervalsMs.length >= 3) {
+    final sortedIntervals = List<int>.from(_rrIntervalsMs)..sort();
+    final medianInterval = sortedIntervals.isEmpty
+        ? 0
+        : sortedIntervals[sortedIntervals.length ~/ 2];
+    final hasHrv =
+        canEstimate &&
+        _rrIntervalsMs.length >= 30 &&
+        _rrIntervalsMs.every(
+          (rr) => (rr - medianInterval).abs() <= medianInterval * .25,
+        );
+    if (hasHrv) {
       final n = _rrIntervalsMs.length.toDouble();
       final mean = _rrIntervalsMs.reduce((a, b) => a + b) / n;
 
-      final variance = _rrIntervalsMs.fold<double>(
-            0.0,
-            (acc, v) {
-              final diff = v.toDouble() - mean;
-              return acc + diff * diff;
-            },
-          ) /
+      final variance =
+          _rrIntervalsMs.fold<double>(0.0, (acc, v) {
+            final diff = v.toDouble() - mean;
+            return acc + diff * diff;
+          }) /
           (n - 1.0);
       sdnn = math.sqrt(variance);
 
@@ -379,25 +412,16 @@ class EcgDspPipeline {
       rmssd = math.sqrt(diffSumSq / (n - 1.0));
     }
 
-    // 5. Rhythm Classification
-    final rhythm = isLeadOff || _currentBpm == 0
-        ? RhythmClassification.noSignal
-        : _currentBpm < 60
-            ? RhythmClassification.bradycardia
-            : _currentBpm > 100
-                ? RhythmClassification.tachycardia
-                : sdnn > 65.0
-                    ? RhythmClassification.irregularArrhythmia
-                    : RhythmClassification.normalSinus;
-
-    final signalQuality = isLeadOff
-        ? 0
-        : _rrIntervalsMs.isEmpty
-            ? 75
-            : 98;
+    // No rhythm diagnosis is made from this unvalidated single channel.
+    final rhythm = canEstimate && _currentBpm > 0
+        ? RhythmClassification.unspecified
+        : RhythmClassification.noSignal;
+    final signalQuality = isLeadOff ? 0 : _signalQuality;
 
     final metrics = CardiacMetrics(
-      heartRateBpm: isLeadOff ? 0 : _currentBpm,
+      heartRateBpm: canEstimate ? _currentBpm : 0,
+      hasHrv: hasHrv,
+      rrIntervalCount: _rrIntervalsMs.length,
       rrIntervalMs: isLeadOff ? 0 : _currentRrMs,
       hrvSdnnMs: isLeadOff ? 0.0 : ((sdnn * 10).round() / 10.0),
       hrvRmssdMs: isLeadOff ? 0.0 : ((rmssd * 10).round() / 10.0),
@@ -426,6 +450,8 @@ class EcgDspPipeline {
     _lowPass.reset();
     _detector.reset();
     _sampleCount = 0;
+    _qualityWindow.clear();
+    _signalQuality = 0;
     _lastRPeakSample = null;
     _rrIntervalsMs.clear();
     _totalBeats = 0;

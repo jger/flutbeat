@@ -124,6 +124,20 @@ class RecordingStore {
     );
   }
 
+  Future<List<Map<String, dynamic>>> readWindow(
+    RecordingSession session,
+    double start,
+    double end,
+  ) async {
+    if (start < 0 || end <= start || end - start > 60.001) {
+      throw ArgumentError('Window must be between 0 and 60 seconds');
+    }
+    return compute(
+      _readWindow,
+      _WindowJob((await _directory(session.id)).path, start, end),
+    );
+  }
+
   Future<void> delete(RecordingSession session) async {
     await (await _directory(session.id)).delete(recursive: true);
   }
@@ -252,4 +266,21 @@ Future<void> _exportFile(_DiskExportJob job) async {
   } finally {
     out.closeSync();
   }
+}
+
+class _WindowJob {
+  const _WindowJob(this.path, this.start, this.end);
+  final String path;
+  final double start, end;
+}
+
+List<Map<String, dynamic>> _readWindow(_WindowJob job) {
+  final result = <Map<String, dynamic>>[];
+  for (final row in _streamRows(job.path)) {
+    if (row['row_type'] != 'sample') continue;
+    final seconds = (row['offset_ms'] as num) / 1000;
+    if (seconds >= job.end) break;
+    if (seconds >= job.start) result.add(row);
+  }
+  return result;
 }

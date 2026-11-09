@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/telemetry_provider.dart';
+import '../ui/help/app_help.dart';
 import 'file_export_service.dart';
 import 'recording_export.dart';
 import 'recording_models.dart';
 import 'recording_provider.dart';
+import 'recording_viewer.dart';
 
 String _duration(double seconds) {
   final whole = seconds.floor();
@@ -130,7 +132,7 @@ class _RecordingBarState extends ConsumerState<RecordingBar> {
                       ? '${_duration(status.elapsedSeconds.toDouble())} / 10:00'
                       : status.hasUnsavedSession
                       ? 'Session awaiting save'
-                      : 'Includes previous 5 sec',
+                      : 'Previous 5 sec • experimental',
                   maxLines: 2,
                   style: TextStyle(
                     fontSize: 11,
@@ -139,6 +141,27 @@ class _RecordingBarState extends ConsumerState<RecordingBar> {
                         : Colors.white54,
                   ),
                 ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Help and about',
+                icon: const Icon(Icons.help_outline),
+                onSelected: (value) => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => value == 'help'
+                        ? const HelpScreen()
+                        : const AboutScreen(),
+                  ),
+                ),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'help',
+                    child: Text('Electrode placement & help'),
+                  ),
+                  PopupMenuItem(
+                    value: 'about',
+                    child: Text('About & licenses'),
+                  ),
+                ],
               ),
               IconButton(
                 tooltip: 'Session library',
@@ -239,7 +262,7 @@ class RecordingLibraryScreen extends ConsumerWidget {
                                 await Navigator.of(context).push(
                                   MaterialPageRoute<void>(
                                     builder: (_) =>
-                                        RecordingExportScreen(session: session),
+                                        RecordingViewerScreen(session: session),
                                   ),
                                 );
                                 ref.invalidate(recordingLibraryProvider);

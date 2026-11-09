@@ -19,7 +19,15 @@ void main() {
   );
   final data = RecordingData(session, [
     for (int i = 0; i < 7500; i++)
-      {'row_type': 'sample', 'sample_index': i, 'offset_ms': i * 4},
+      {
+        'row_type': 'sample',
+        'sample_index': i,
+        'offset_ms': i * 4,
+        'raw_adc': 512,
+        'voltage_mv': 0.0,
+        'filtered_mv': 0.0,
+        'is_r_peak': false,
+      },
   ]);
 
   for (final size in [const Size(360, 640), const Size(800, 360)]) {
@@ -72,6 +80,15 @@ void main() {
     expect(find.text(session.name), findsOneWidget);
     await tester.tap(find.text(session.name));
     await tester.pumpAndSettle();
+    expect(find.text('Recorded signal'), findsOneWidget);
+    await tester.tap(find.byTooltip('Zoom in time'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('0.00 – 2.50 s'), findsOneWidget);
+    await tester.tap(find.byTooltip('Increase amplitude'));
+    await tester.pump();
+    expect(find.text('1.4× amplitude'), findsOneWidget);
+    await tester.tap(find.byTooltip('Export recording'));
+    await tester.pumpAndSettle();
     expect(find.text('Export recording'), findsOneWidget);
     expect(find.text('Raw ECG'), findsOneWidget);
     expect(find.text('Filtered ECG'), findsOneWidget);
@@ -83,6 +100,18 @@ class _FixtureStore extends RecordingStore {
   final RecordingData data;
   @override
   Future<List<RecordingSession>> list() async => [data.session];
+  @override
+  Future<List<Map<String, dynamic>>> readWindow(
+    RecordingSession session,
+    double start,
+    double end,
+  ) async => data.samples
+      .where(
+        (r) =>
+            (r['offset_ms'] as num) >= start * 1000 &&
+            (r['offset_ms'] as num) < end * 1000,
+      )
+      .toList();
   @override
   Future<RecordingData> read(
     RecordingSession session, {

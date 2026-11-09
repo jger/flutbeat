@@ -13,6 +13,8 @@ const exportGroups = <String, List<String>>{
   'Cardiac metrics': [
     'heart_rate_bpm',
     'rr_interval_ms',
+    'hrv_available',
+    'rr_interval_count',
     'sdnn_ms',
     'rmssd_ms',
     'rhythm',
@@ -252,12 +254,12 @@ Future<Uint8List> recordingPdf(
           pw.SizedBox(height: 10),
         ],
         pw.Text(
-          'Time basis: sample order at nominal 250 Hz. UTC timestamps are host arrival times, not device acquisition timestamps. Lead-off intervals appear as gaps. Voltage scaling follows the app ADC conversion.',
+          'For fun and experimentation only. Not a medical device; cannot replace a medical ECG. Time basis: sample order at nominal 250 Hz. UTC timestamps are host arrival times, not device acquisition timestamps. Lead-off intervals appear as gaps. Voltage is uncalibrated: assumed 3.2 V ADC reference and gain 1100.',
           style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
         ),
         if (options.pdfFiltered)
           pw.Text(
-            'DSP: 0.5 Hz high-pass, 50 Hz notch, 40 Hz low-pass.',
+            'DSP: DC blocker alpha=0.992 (~0.32 Hz), 50 Hz notch, 40 Hz low-pass.',
             style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
           ),
         pw.Text(

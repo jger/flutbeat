@@ -1,8 +1,8 @@
 name: flutbeat_frontend
-description: "FlutBeat — Professional AD8232 ECG Oscilloscope & Cardiac Telemetry Dashboard"
+description: "FlutBeat — Experimental AD8232 ECG signal explorer and recorder"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ^3.13.1
@@ -30,6 +30,7 @@ dependencies:
   path_provider: ^2.1.6
   pdf: ^3.13.1
   share_plus: ^13.3.1
+  package_info_plus: ^10.2.2
 
 dev_dependencies:
   flutter_test:
@@ -42,3 +43,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/licenses/
+    - assets/branding/

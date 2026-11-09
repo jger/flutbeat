@@ -10,6 +10,7 @@ import '../widgets/ecg_control_toolbar.dart';
 import '../widgets/ecg_oscilloscope_painter.dart';
 import '../widgets/event_log_list.dart';
 import 'config_screen.dart';
+import '../help/app_help.dart';
 import '../../recording/recording_ui.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -128,8 +129,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         child: Column(
           children: [
             // Error banner only in portrait when not connected to save landscape vertical space
-            if (telemetry.errorMessage != null && !telemetry.isConnected)
-              _buildErrorBanner(telemetry),
 
             // Main body area (Fullscreen Graph vs Responsive UI)
             Expanded(
@@ -138,36 +137,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             const RecordingBar(),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildErrorBanner(TelemetryState telemetry) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: const Color(0xFFEF4444).withValues(alpha: 0.18),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            color: Color(0xFFEF4444),
-            size: 18,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              telemetry.errorMessage!,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFFEF4444),
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -193,6 +162,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       );
     }
 
+    if (!telemetry.isConnected) {
+      return OfflineSetup(
+        connecting: telemetry.connectionStatus == ConnectionStatus.connecting,
+        error: telemetry.errorMessage,
+        onConnect: handleReconnect,
+      );
+    }
     if (!_showAllUi) {
       // FULL GRAPH VIEW: uses all available space (edge-to-edge in landscape)
       return Padding(

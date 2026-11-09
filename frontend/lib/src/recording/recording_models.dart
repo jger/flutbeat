@@ -50,8 +50,10 @@ class RecordingSession {
     'sample_count': sampleCount,
     'stop_reason': stopReason,
     'nominal_sample_rate_hz': 250,
+    'voltage_calibration':
+        'Assumed ADC reference 3.2 V and analog gain 1100; not calibrated',
     'time_basis': 'Waveform offsets use sample order at nominal 250 Hz; UTC times are host arrival times.',
-    'dsp': '0.5 Hz high-pass; 50 Hz notch; 40 Hz low-pass',
+    'dsp': 'DC blocker alpha=0.992 (~0.32 Hz); 50 Hz notch; 40 Hz low-pass',
   };
 
   factory RecordingSession.fromJson(Map<String, dynamic> json) =>

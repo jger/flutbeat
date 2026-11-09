@@ -25,6 +25,10 @@ class Telemetry extends _$Telemetry {
   StreamSubscription<RawEcgFrame>? _frameSub;
   StreamSubscription<String>? _statusSub;
   Timer? _uptimeTimer;
+  Timer? _devicePollTimer;
+  bool _connecting = false;
+  bool _polling = false;
+  final _autoAttemptedDevices = <int?>{};
   bool _isDisposed = false;
   StreamSubscription<void>? _disconnectSub;
   List<EcgPointData>? _liveBuffer;
@@ -47,8 +51,9 @@ class Telemetry extends _$Telemetry {
       );
     });
     _serialService.listenToUsbEvents(
-      onAttached: (_) {},
+      onAttached: (_) => unawaited(_pollForDevice()),
       onDetached: (device) {
+        _autoAttemptedDevices.remove(device?.deviceId);
         if (device == null ||
             device.deviceId == _serialService.connectedDeviceId) {
           unawaited(_serialService.disconnect());
@@ -69,6 +74,10 @@ class Telemetry extends _$Telemetry {
       }
     });
 
+    _devicePollTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(_pollForDevice()),
+    );
     // Initialize direct USB Serial connection
     Future.microtask(() => _startUsbSerial(config.baudRate));
 
@@ -82,6 +91,7 @@ class Telemetry extends _$Telemetry {
   void _cleanup() {
     _uptimeTimer?.cancel();
     _uptimeTimer = null;
+    _devicePollTimer?.cancel();
     _disconnectSub?.cancel();
     _frameSub?.cancel();
     _frameSub = null;
@@ -90,7 +100,37 @@ class Telemetry extends _$Telemetry {
     _serialService.dispose();
   }
 
+  Future<void> _pollForDevice() async {
+    if (_isDisposed || _connecting || _polling || state.isConnected) return;
+    _polling = true;
+    try {
+      final devices = await _serialService.getAvailableDevices();
+      if (_isDisposed) return;
+      _autoAttemptedDevices.removeWhere(
+        (id) => !devices.any((device) => device.deviceId == id),
+      );
+      if (devices.isNotEmpty &&
+          !_autoAttemptedDevices.contains(devices.first.deviceId)) {
+        await _startUsbSerial(state.baudRate);
+      }
+    } finally {
+      _polling = false;
+    }
+  }
+
   Future<void> _startUsbSerial(int baudRate) async {
+    if (_isDisposed || _connecting) return;
+    _connecting = true;
+    try {
+      await _connectUsbSerial(baudRate);
+    } catch (error) {
+      if (!_isDisposed) _handleError('Connection failed: $error');
+    } finally {
+      _connecting = false;
+    }
+  }
+
+  Future<void> _connectUsbSerial(int baudRate) async {
     await ref
         .read(recordingProvider.notifier)
         .stop(reason: 'connection changed');
@@ -139,6 +179,7 @@ class Telemetry extends _$Telemetry {
     }
 
     final targetDevice = devices.first;
+    _autoAttemptedDevices.add(targetDevice.deviceId);
     final devName = targetDevice.productName ?? targetDevice.deviceName;
 
     _statusSub = _serialService.statusStream.listen((msg) {

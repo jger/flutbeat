@@ -20,15 +20,14 @@ enum RhythmClassification {
 }
 
 /// Telemetry input stream origin
-enum SourceMode {
-  usbSerial,
-  simulator,
-}
+enum SourceMode { usbSerial, simulator }
 
 /// Real-time clinical cardiac vital metrics computed by the DSP engine
 class CardiacMetrics {
   const CardiacMetrics({
     this.heartRateBpm = 0,
+    this.hasHrv = false,
+    this.rrIntervalCount = 0,
     this.rrIntervalMs = 0,
     this.hrvSdnnMs = 0.0,
     this.hrvRmssdMs = 0.0,
@@ -40,6 +39,8 @@ class CardiacMetrics {
   });
 
   final int heartRateBpm;
+  final bool hasHrv;
+  final int rrIntervalCount;
   final int rrIntervalMs;
   final double hrvSdnnMs;
   final double hrvRmssdMs;
@@ -51,6 +52,8 @@ class CardiacMetrics {
 
   CardiacMetrics copyWith({
     int? heartRateBpm,
+    bool? hasHrv,
+    int? rrIntervalCount,
     int? rrIntervalMs,
     double? hrvSdnnMs,
     double? hrvRmssdMs,
@@ -62,6 +65,8 @@ class CardiacMetrics {
   }) {
     return CardiacMetrics(
       heartRateBpm: heartRateBpm ?? this.heartRateBpm,
+      hasHrv: hasHrv ?? this.hasHrv,
+      rrIntervalCount: rrIntervalCount ?? this.rrIntervalCount,
       rrIntervalMs: rrIntervalMs ?? this.rrIntervalMs,
       hrvSdnnMs: hrvSdnnMs ?? this.hrvSdnnMs,
       hrvRmssdMs: hrvRmssdMs ?? this.hrvRmssdMs,
@@ -75,12 +80,7 @@ class CardiacMetrics {
 }
 
 /// Event types emitted during cardiac telemetry monitoring
-enum CardiacEventType {
-  rPeak,
-  leadOff,
-  leadRestored,
-  arrhythmiaAlert,
-}
+enum CardiacEventType { rPeak, leadOff, leadRestored, arrhythmiaAlert }
 
 /// Cardiac telemetry discrete event
 class CardiacEvent {
@@ -100,12 +100,7 @@ class CardiacEvent {
 }
 
 /// Diagnostic log severity level
-enum LogLevel {
-  debug,
-  info,
-  warn,
-  error,
-}
+enum LogLevel { debug, info, warn, error }
 
 /// Diagnostic system log entry
 class LogEntry {

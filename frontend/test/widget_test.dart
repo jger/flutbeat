@@ -208,7 +208,7 @@ void main() {
 
         // Oscilloscope Canvas uses all available space
         expect(find.byType(EcgOscilloscope), findsOneWidget);
-        expect(find.text('LEAD II  '), findsOneWidget);
+        expect(find.text('SINGLE LEAD'), findsOneWidget);
 
         // By default in full graph mode, full controls and vitals are hidden
         expect(find.byType(ClinicalVitalsBar), findsNothing);
@@ -327,7 +327,7 @@ void main() {
         expect(graph.top, greaterThanOrEqualTo(24));
         expect(graph.right, lessThanOrEqualTo(784));
         expect(graph.bottom, lessThanOrEqualTo(336));
-        final legend = tester.getRect(find.text('LEAD II  '));
+        final legend = tester.getRect(find.text('SINGLE LEAD'));
         final toggle = tester.getRect(
           find.byKey(const Key('toggle_ui_button')),
         );

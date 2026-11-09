@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:usb_serial/usb_serial.dart';
@@ -121,6 +122,74 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'USB polling finds a later device and does not repeat denied permission prompts',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final usb = _PollingUsb();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            recordingStoreProvider.overrideWithValue(store),
+            telemetryProvider.overrideWith(() => Telemetry(serialService: usb)),
+          ],
+          child: MaterialApp(
+            home: Consumer(
+              builder: (context, ref, _) =>
+                  Text(ref.watch(telemetryProvider).connectionStatus.name),
+            ),
+          ),
+        ),
+      );
+      for (int i = 0; i < 6; i++) {
+        await tester.pump();
+      }
+      expect(usb.attempts, 0);
+      usb.available = true;
+      await tester.pump(const Duration(seconds: 5));
+      for (int i = 0; i < 6; i++) {
+        await tester.pump();
+      }
+      expect(usb.attempts, 1);
+      await tester.pump(const Duration(seconds: 10));
+      for (int i = 0; i < 6; i++) {
+        await tester.pump();
+      }
+      expect(usb.attempts, 1);
+      final scope = ProviderScope.containerOf(
+        tester.element(find.byType(Text)),
+      );
+      scope.read(telemetryProvider.notifier).reconnect();
+      for (int i = 0; i < 6; i++) {
+        await tester.pump();
+      }
+      expect(usb.attempts, 2);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  test('Viewer reads only the requested sample window', () async {
+    final session = RecordingSession(
+      id: '222',
+      startedAt: now,
+      recordPressedAt: now,
+      device: 'test',
+      baudRate: 115200,
+      sampleCount: 750,
+    );
+    await store.saveMetadata(session);
+    await store.writeBatch(session.id, 0, [
+      for (int i = 0; i < 750; i++) _row(i),
+    ]);
+    final window = await store.readWindow(session, 1, 2);
+    expect(window.length, 250);
+    expect(window.first['sample_index'], 250);
+    expect(window.last['sample_index'], 499);
+    expect(() => store.readWindow(session, 0, 61), throwsArgumentError);
+  });
 
   test('Stale pre-roll is rejected until live samples arrive', () async {
     final recorder = container.read(recordingProvider.notifier);
@@ -421,5 +490,18 @@ class _FakeUsb extends UsbSerialService {
     frames.close();
     disconnected.close();
     super.dispose();
+  }
+}
+
+class _PollingUsb extends _FakeUsb {
+  bool available = false;
+  int attempts = 0;
+  @override
+  Future<List<UsbDevice>> getAvailableDevices() async =>
+      available ? super.getAvailableDevices() : [];
+  @override
+  Future<bool> connect({UsbDevice? device, int baudRate = 115200}) async {
+    attempts++;
+    return false;
   }
 }

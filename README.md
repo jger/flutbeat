@@ -39,7 +39,7 @@ flowchart LR
 
     subgraph FE["2. Flutter Clinical Dashboard (Direct OTG Connection)"]
         USB["USB Serial OTG Driver\n(usb_serial @ 115200 baud)\n• Auto device detection (CH340/CP2102/FTDI)\n• Fallback ECG Simulator"]
-        DSP["In-App Dart DSP & Analytics Pipeline\n• DC-Block High-Pass (0.5 Hz)\n• 50 Hz Biquad Notch Filter\n• 40 Hz Butterworth Low-Pass\n• Pan-Tompkins QRS R-Peak Detector\n• BPM, R-R, HRV SDNN & RMSSD\n• Clinical Rhythm Classifier"]
+        DSP["In-App Dart DSP & Analytics Pipeline\n• DC blocker (~0.32 Hz)\n• 50 Hz Biquad Notch Filter\n• 40 Hz Butterworth Low-Pass\n• Pan-Tompkins QRS R-Peak Detector\n• BPM, R-R, HRV SDNN & RMSSD\n• Experimental Signal Checks"]
         RIVERPOD["Riverpod 3.x State Notifier\n& 1250-Point Ring Buffer (5s)"]
         CANVAS["60 FPS Medical Oscilloscope\n• Standard 1mm/5mm Millimeter Grid\n• 1 mV Calibration Pulse\n• ICU Sweep Mode (Erase-Bar + Cursor)\n• Continuous Left-Scrolling Mode\n• 25 mm/s & 50 mm/s Paper Speeds\n• 5, 10, 20 mm/mV Voltage Gains"]
         VITALS["Clinical Vitals & Controls\n• Pulsing Heart & BPM Readout\n• Rhythm: Sinus, Brady, Tachy, Arrhythmia\n• R-R Interval, HRV SDNN, RMSSD\n• Live LO+ / LO- Electrode Status\n• Freeze/Resume & CSV Export"]
@@ -136,29 +136,21 @@ The AD8232 is an integrated biopotential conditioning front-end specifically des
 
 ---
 
-## 🫀 Einthoven 3-Lead Electrode Placement
+## 🫀 Three electrodes, one ECG channel
 
-For standard **Lead II** monitoring (which yields the tallest, clearest R-peak deflection aligned with the primary ventricular depolarization vector):
+For this kit, RA is green, LA is red, and RL is yellow, as shown in the diagram. Match the module and cable labels; other kits may use different colors. This torso arrangement is an RA–LA measurement with an RL reference, not standard Lead II or a three-channel ECG.
 
 <p align="center">
-  <img src="assets/ecg_electrode_placement.svg" alt="Einthoven 3-Lead Electrode Placement" width="700"/>
+  <img src="assets/ecg_electrode_placement.svg" alt="RA and LA measurement electrodes with an RL reference" width="700"/>
 </p>
 
-### Anatomical Placement Guide
+| Electrode | Placement (wearer's side) | Role |
+| :--- | :--- | :--- |
+| RA | Upper right chest, below the collarbone | Measurement input |
+| LA | Upper left chest, below the collarbone | Other measurement input |
+| RL | Lower right torso | Reference / driven right-leg connection |
 
-| Electrode Pad | Body Placement Location | Clinical Function | Wire Color (Standard) |
-| :---: | :--- | :--- | :---: |
-| **RA** | Right Infraclavicular Fossa (just beneath the right clavicle) | Negative biopotential input | **Red** |
-| **LA** | Left Infraclavicular Fossa (just beneath the left clavicle) | Ground / Reference | **Yellow** |
-| **RL** | Lower Left Abdomen (above left hip bone) | Positive biopotential input (Lead II axis) | **Green / Black** |
-
-$$\text{Lead II Potential} = V_{\text{LL}} - V_{\text{RA}}$$
-
-> [!TIP]
-> **Best Practices for Clean ECG Signals:**
-> 1. Clean the skin with an alcohol wipe and let it dry before attaching the electrode pads.
-> 2. Ensure firm adhesion to reduce motion artifacts.
-> 3. Keep the subject relaxed and still during monitoring to prevent electromyographic (EMG) muscle noise.
+RL is not the positive measurement input and LA is not ground. The front-view illustration mirrors the wearer's sides. Use fresh pads on clean, dry, intact skin and secure the wires to reduce motion. With electrodes attached, use battery power and disconnect mains-powered chargers/computers; ordinary USB is not medical electrical isolation.
 
 ---
 
@@ -166,11 +158,11 @@ $$\text{Lead II Potential} = V_{\text{LL}} - V_{\text{RA}}$$
 
 The application processes raw ADC data at **250 Hz** ($T_s = 4.0\text{ ms}$) in pure Dart:
 
-1. **Physical Voltage Scaling**:
-   Converts 10-bit raw ADC ($0 \dots 1023$, centered around baseline $\approx 512$) to physiological millivolts ($-1.6\text{ mV} \dots +1.6\text{ mV}$):
+1. **Assumed Voltage Scaling (uncalibrated)**:
+   Converts 10-bit raw ADC ($0 \dots 1023$, centered around baseline $\approx 512$) to estimated millivolts ($-1.6\text{ mV} \dots +1.6\text{ mV}$):
    $$V_{\text{cardiac}} = \frac{(ADC - 512) \times \frac{3200\text{ mV}}{1023}}{\text{Gain}_{\text{AD8232}}} \quad (\text{Gain} = 1100\text{ V/V})$$
 
-2. **DC Blocker ($0.5\text{ Hz}$ High-Pass)**:
+2. **DC Blocker (approximately $0.32\text{ Hz}$ at 250 Hz)**:
    Eliminates baseline drift and respiration wander:
    $$y[n] = x[n] - x[n-1] + \alpha \cdot y[n-1] \quad (\alpha = 0.992)$$
 
@@ -185,12 +177,12 @@ The application processes raw ADC data at **250 Hz** ($T_s = 4.0\text{ ms}$) in 
    - Nonlinear squaring: $y[n]^2$
    - Moving-Window Integration (MWI) over $120\text{ ms}$ window ($30$ samples)
    - Dual adaptive thresholding ($0.25 \times (\text{Signal} - \text{Noise})$)
-   - $200\text{ ms}$ refractory blanking period ($50$ samples)
+   - $260\text{ ms}$ refractory blanking period ($65$ samples)
 
 6. **Cardiac Telemetry & HRV Calculation**:
    - R-R intervals and moving heart rate (BPM)
-   - HRV metrics: **SDNN** and **RMSSD**
-   - Rhythm classification: *Normal Sinus*, *Bradycardia* ($<60$), *Tachycardia* ($>100$), *Irregular Arrhythmia*, *No Signal*.
+   - Exploratory RR standard deviation and successive-difference RMS only after 30 consistent intervals with adequate electrical signal checks; not validated clinical NN/HRV analysis.
+   - No automatic rhythm diagnosis. Dominant mains noise, flatline or saturation withhold rate estimates.
 
 ---
 
@@ -236,6 +228,18 @@ make fe-run   # Launches Flutter app
 
 ---
 
+## Experimental use, setup help, and recorded-signal viewer
+
+FlutBeat is for fun, learning and experimentation. It is not a medical device and cannot replace a medical ECG or professional medical advice. It must not be used to diagnose, monitor or treat a condition.
+
+With no USB device, the dashboard shows a front-view RA/LA/RL placement diagram and connection help. It scans every five seconds and attempts connection when a device appears. A denied permission is not prompted repeatedly; tap Connect for a manual retry. The help menu remains available when connected and includes About, installed package version, Flutter/package licenses and native USB dependency notices.
+
+Use the RA/LA/RL connector labels rather than cable colors. The illustrated upper-right-chest / upper-left-chest / lower-right-reference placement records one RA–LA channel. Use battery power with body electrodes attached; disconnect mains-powered chargers and computers. Ordinary USB does not provide medical electrical isolation.
+
+Open a session in the library to view its waveform. Drag to pan, pinch to zoom, change amplitude, switch raw/filtered voltage and tap two points for time/voltage calipers. The viewer reads a bounded window (up to 60 seconds) rather than the entire session. Its Export button opens the CSV/PDF controls.
+
+Signal percentage is now a raw-signal heuristic for flatline, saturation and mains-frequency interference, not a clinical confidence score. Dominant interference suppresses rate estimation; the app no longer labels an unvalidated single channel as normal sinus or arrhythmia. Short/noisy/outlying detected intervals do not yield exploratory RR variability. Even longer segments require verified normal-to-normal intervals for clinical HRV. Absolute voltage uses assumed hardware conversion and is uncalibrated. The unchanged DC blocker's alpha 0.992 corresponds to roughly 0.32 Hz at 250 Hz; new export provenance reflects this.
+
 ## Recording and exporting sessions
 
 Tap **Record** to capture up to 10 minutes plus the preceding five seconds of available ECG. Sessions use automatic timestamp names. The app records raw ADC, converted and filtered voltage, lead flags, R peaks, cardiac metrics, detected events, display settings, and system logs. **Freeze** holds the waveform while acquisition and recording continue. **Stop** saves the session to the local **Session library**.
@@ -259,7 +263,7 @@ flutbeat/
 ├── README.md                          # Master documentation & circuit schematics
 ├── assets/
 │   ├── ad8232_d1_mini_wiring.svg      # Vector wiring schematic (AD8232 <-> D1 Mini)
-│   └── ecg_electrode_placement.svg    # Einthoven Lead II electrode placement diagram
+│   └── ecg_electrode_placement.svg    # RA/LA measurement and RL reference placement diagram
 ├── firmware/
 │   └── d1_mini_ecg/
 │       └── d1_mini_ecg.ino            # Direct USB Serial OTG 250 Hz firmware
