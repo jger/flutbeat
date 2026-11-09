@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:usb_serial/usb_serial.dart';
+
 import '../../models/cardiac_metrics.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/telemetry_provider.dart';
@@ -54,12 +55,16 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
   }
 
   void _saveAndConnect() async {
-    await ref.read(configProvider.notifier).updateConfig(
+    await ref
+        .read(configProvider.notifier)
+        .updateConfig(
           baudRate: _selectedBaudRate,
           sourceMode: SourceMode.usbSerial,
         );
 
-    await ref.read(telemetryProvider.notifier).configureSource(
+    await ref
+        .read(telemetryProvider.notifier)
+        .configureSource(
           mode: SourceMode.usbSerial,
           baudRate: _selectedBaudRate,
         );
@@ -67,7 +72,9 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Connecting to USB Serial @ $_selectedBaudRate baud...'),
+          content: Text(
+            'Connecting to USB Serial @ $_selectedBaudRate baud...',
+          ),
           backgroundColor: const Color(0xFF10B981),
           behavior: SnackBarBehavior.floating,
         ),
@@ -78,6 +85,7 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
 
   void _restoreDefaults() async {
     await ref.read(configProvider.notifier).resetToDefaults();
+    if (!mounted) return;
     final config = ref.read(configProvider);
     setState(() {
       _selectedBaudRate = config.baudRate;
@@ -111,59 +119,67 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // OTG Direct Cable Connection Banner
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E2638),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // OTG Direct Cable Connection Banner
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E2638),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.usb_rounded,
+                        color: Color(0xFF38BDF8),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Direct USB OTG Connection',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Connect your ESP8266 / ESP32 board directly to your mobile device using a USB-C OTG cable. No backend or Wi-Fi required!',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.usb_rounded, color: Color(0xFF38BDF8), size: 24),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Direct USB OTG Connection',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Connect your ESP8266 / ESP32 board directly to your mobile device using a USB-C OTG cable. No backend or Wi-Fi required!',
-                          style: TextStyle(fontSize: 12, color: Colors.white70),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-            // USB OTG Devices Card
-            Row(
+              // USB OTG Devices Card
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
@@ -184,7 +200,10 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.refresh_rounded, size: 16),
-                    label: const Text('Scan Ports', style: TextStyle(fontSize: 12)),
+                    label: const Text(
+                      'Scan Ports',
+                      style: TextStyle(fontSize: 12),
+                    ),
                   ),
                 ],
               ),
@@ -200,14 +219,19 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 20),
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        color: Colors.white38,
+                        size: 20,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          _isScanning
-                              ? 'Scanning for USB OTG devices...'
-                              : 'No USB serial devices detected. Connect your ESP board via OTG and tap "Scan Ports".',
-                          style: const TextStyle(fontSize: 12, color: Colors.white60),
+                          _isScanning ? 'Scanning for USB OTG devices...' : 'No USB serial devices detected. Connect your ESP board via OTG and tap "Scan Ports".',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white60,
+                          ),
                         ),
                       ),
                     ],
@@ -222,14 +246,33 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
                     color: const Color(0xFF141923),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Color(0xFF00FF88), width: 1.5),
+                      side: const BorderSide(
+                        color: Color(0xFF00FF88),
+                        width: 1.5,
+                      ),
                     ),
                     margin: const EdgeInsets.only(bottom: 8),
                     child: ListTile(
-                      leading: const Icon(Icons.developer_board_rounded, color: Color(0xFF00FF88)),
-                      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.white54)),
-                      trailing: const Icon(Icons.check_circle_rounded, color: Color(0xFF00FF88), size: 20),
+                      leading: const Icon(
+                        Icons.developer_board_rounded,
+                        color: Color(0xFF00FF88),
+                      ),
+                      title: Text(
+                        title,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white54,
+                        ),
+                      ),
+                      trailing: const Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFF00FF88),
+                        size: 20,
+                      ),
                     ),
                   );
                 }),
@@ -247,19 +290,25 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
+                key: ValueKey(_selectedBaudRate),
+                isExpanded: true,
                 initialValue: _selectedBaudRate,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.speed_rounded),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 items: _supportedBaudRates
-                    .map((baud) => DropdownMenuItem(
-                          value: baud,
-                          child: Text(
-                            '$baud baud ${baud == 115200 ? "(Standard USB)" : (baud == 74880 ? "(ESP8266 Bootloader)" : "")}',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ))
+                    .map(
+                      (baud) => DropdownMenuItem(
+                        value: baud,
+                        child: Text(
+                          '$baud baud ${baud == 115200 ? "(Standard USB)" : (baud == 74880 ? "(ESP8266 Bootloader)" : "")}',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    )
                     .toList(),
                 onChanged: (val) {
                   if (val != null) {
@@ -267,26 +316,27 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
                   }
                 },
               ),
-            const SizedBox(height: 32),
+              const SizedBox(height: 32),
 
-            // Save & Connect Button
-            FilledButton.icon(
-              onPressed: _saveAndConnect,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: const Color(0xFF00FF88),
-                foregroundColor: const Color(0xFF090D15),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+              // Save & Connect Button
+              FilledButton.icon(
+                onPressed: _saveAndConnect,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: const Color(0xFF00FF88),
+                  foregroundColor: const Color(0xFF090D15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: const Icon(Icons.power_rounded, size: 20),
+                label: const Text(
+                  'Connect to ESP OTG',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
-              icon: const Icon(Icons.power_rounded, size: 20),
-              label: const Text(
-                'Connect to ESP OTG',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -236,6 +236,22 @@ make fe-run   # Launches Flutter app
 
 ---
 
+## Recording and exporting sessions
+
+Tap **Record** to capture up to 10 minutes plus the preceding five seconds of available ECG. Sessions use automatic timestamp names. The app records raw ADC, converted and filtered voltage, lead flags, R peaks, cardiac metrics, detected events, display settings, and system logs. **Freeze** holds the waveform while acquisition and recording continue. **Stop** saves the session to the local **Session library**.
+
+Recording keeps the screen awake. USB disconnect, stream errors, connection changes, or moving the app into the background stop and save the current session. This version supports foreground recording; it does not run a background recording service.
+
+Open a session in the library to select an exact start/end range and export:
+
+- **CSV:** choose the signal, metric, event, display, and log columns to include. Each row identifies its type; log rows have empty signal columns.
+- **PDF:** a summary and up to three six-second ECG excerpts from the selected range, with either filtered or unfiltered voltage. Printed strip scale is 25 mm/s and 10 mm/mV at 100% print size.
+- **Save file** opens Android's system destination picker; **Share** opens the platform share sheet. Export choices leave the complete local recording intact. CSV and PDF exports read the recording in batches without loading the full session into the UI.
+
+Waveform offsets use sample order at the firmware's nominal **250 Hz**. The USB protocol has no acquisition timestamp or sequence counter, so exported UTC times describe arrival at the phone; missing firmware/USB samples cannot be identified from this protocol. The PDF labels this timing basis and shows lead-off intervals as gaps.
+
+Sessions are stored under the app's support directory as versioned metadata and one-second batches of newline-delimited JSON. Batches are committed with atomic renames. After an app interruption, opening an unfinished session recovers its committed samples; the last uncommitted batch may be absent. Storage failures stop recording and retain pending data in memory for **Retry save**. Keep the app open until retry succeeds. Deleting a session requires confirmation in the library.
+
 ## 📂 Repository Structure
 
 ```text

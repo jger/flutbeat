@@ -1,32 +1,60 @@
 import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+
 import '../dsp/ecg_dsp_pipeline.dart';
 import '../models/cardiac_metrics.dart';
 import '../models/telemetry_state.dart';
 import '../services/usb_serial_service.dart';
 import 'config_provider.dart';
+import '../recording/recording_provider.dart';
 
 part 'telemetry_provider.g.dart';
 
 @Riverpod(keepAlive: true)
 class Telemetry extends _$Telemetry {
+  Telemetry({UsbSerialService? serialService})
+    : _serialService = serialService ?? UsbSerialService();
   static const int _maxEvents = 100;
   static const int _maxLogs = 200;
 
-  final UsbSerialService _serialService = UsbSerialService();
+  final UsbSerialService _serialService;
   final EcgDspPipeline _dsp = EcgDspPipeline();
 
   StreamSubscription<RawEcgFrame>? _frameSub;
   StreamSubscription<String>? _statusSub;
   Timer? _uptimeTimer;
   bool _isDisposed = false;
+  StreamSubscription<void>? _disconnectSub;
+  List<EcgPointData>? _liveBuffer;
+  int _liveCursor = 0;
 
   @override
   TelemetryState build() {
-    final config = ref.watch(configProvider);
+    final config = ref.read(configProvider);
 
     _isDisposed = false;
+    _disconnectSub = _serialService.disconnectionStream.listen((_) {
+      if (_isDisposed) return;
+      ref.read(recordingProvider.notifier).clearHistory();
+      unawaited(
+        ref.read(recordingProvider.notifier).stop(reason: 'USB disconnected'),
+      );
+      state = state.copyWith(
+        connectionStatus: ConnectionStatus.disconnected,
+        errorMessage: 'USB device disconnected.',
+      );
+    });
+    _serialService.listenToUsbEvents(
+      onAttached: (_) {},
+      onDetached: (device) {
+        if (device == null ||
+            device.deviceId == _serialService.connectedDeviceId) {
+          unawaited(_serialService.disconnect());
+        }
+      },
+    );
 
     ref.onDispose(() {
       _isDisposed = true;
@@ -54,6 +82,7 @@ class Telemetry extends _$Telemetry {
   void _cleanup() {
     _uptimeTimer?.cancel();
     _uptimeTimer = null;
+    _disconnectSub?.cancel();
     _frameSub?.cancel();
     _frameSub = null;
     _statusSub?.cancel();
@@ -62,7 +91,15 @@ class Telemetry extends _$Telemetry {
   }
 
   Future<void> _startUsbSerial(int baudRate) async {
+    await ref
+        .read(recordingProvider.notifier)
+        .stop(reason: 'connection changed');
+    ref.read(recordingProvider.notifier).clearHistory();
     await _serialService.disconnect();
+    if (_isDisposed) return;
+    _liveBuffer = null;
+    _liveCursor = 0;
+    _dsp.reset();
 
     _frameSub?.cancel();
     _statusSub?.cancel();
@@ -70,18 +107,33 @@ class Telemetry extends _$Telemetry {
     state = state.copyWith(
       connectionStatus: ConnectionStatus.connecting,
       sourceMode: SourceMode.usbSerial,
+      buffer: List.filled(TelemetryState.bufferCapacity, EcgPointData.zero),
+      cursorIndex: 0,
+      totalSamples: 0,
+      isFrozen: false,
+      metrics: const CardiacMetrics(),
       baudRate: baudRate,
       clearError: true,
     );
 
-    _addLog(LogLevel.info, 'USB-OTG', 'Scanning for connected USB-to-UART devices...');
+    _addLog(
+      LogLevel.info,
+      'USB-OTG',
+      'Scanning for connected USB-to-UART devices...',
+    );
 
     final devices = await _serialService.getAvailableDevices();
+    if (_isDisposed) return;
     if (devices.isEmpty) {
-      _addLog(LogLevel.warn, 'USB-OTG', 'No physical USB device found. Check OTG cable & permissions.');
+      _addLog(
+        LogLevel.warn,
+        'USB-OTG',
+        'No physical USB device found. Check OTG cable & permissions.',
+      );
       state = state.copyWith(
         connectionStatus: ConnectionStatus.disconnected,
-        errorMessage: 'No USB device detected. Connect ESP board via OTG cable.',
+        errorMessage:
+            'No USB device detected. Connect ESP board via OTG cable.',
       );
       return;
     }
@@ -105,13 +157,18 @@ class Telemetry extends _$Telemetry {
       baudRate: baudRate,
     );
 
+    if (_isDisposed) return;
     if (connected) {
       state = state.copyWith(
         connectionStatus: ConnectionStatus.connected,
         connectedDeviceName: devName,
         clearError: true,
       );
-      _addLog(LogLevel.info, 'USB-OTG', 'Connected to $devName @ $baudRate baud.');
+      _addLog(
+        LogLevel.info,
+        'USB-OTG',
+        'Connected to $devName @ $baudRate baud.',
+      );
     } else {
       state = state.copyWith(
         connectionStatus: ConnectionStatus.error,
@@ -121,7 +178,7 @@ class Telemetry extends _$Telemetry {
   }
 
   void _handleRawFrame(RawEcgFrame frame) {
-    if (_isDisposed || state.isFrozen) return;
+    if (_isDisposed) return;
 
     final processed = _dsp.processSample(
       rawAdc: frame.rawAdc,
@@ -130,8 +187,8 @@ class Telemetry extends _$Telemetry {
       timestampMs: frame.timestampMs,
     );
 
-    final newBuffer = List<EcgPointData>.from(state.buffer);
-    final cursor = state.cursorIndex;
+    final newBuffer = List<EcgPointData>.from(_liveBuffer ?? state.buffer);
+    final cursor = _liveCursor;
     final cap = TelemetryState.bufferCapacity;
 
     newBuffer[cursor] = EcgPointData(
@@ -144,6 +201,17 @@ class Telemetry extends _$Telemetry {
     );
 
     final nextCursor = (cursor + 1) % cap;
+    _liveBuffer = newBuffer;
+    _liveCursor = nextCursor;
+    ref
+        .read(recordingProvider.notifier)
+        .capture(
+          frame,
+          newBuffer[cursor],
+          processed.metrics,
+          state,
+          processed.event,
+        );
 
     List<CardiacEvent> updatedEvents = state.cardiacEvents;
     if (processed.event != null) {
@@ -155,8 +223,8 @@ class Telemetry extends _$Telemetry {
 
     state = state.copyWith(
       connectionStatus: ConnectionStatus.connected,
-      buffer: newBuffer,
-      cursorIndex: nextCursor,
+      buffer: state.isFrozen ? state.buffer : newBuffer,
+      cursorIndex: state.isFrozen ? state.cursorIndex : nextCursor,
       metrics: processed.metrics,
       cardiacEvents: updatedEvents,
       totalSamples: state.totalSamples + 1,
@@ -173,6 +241,7 @@ class Telemetry extends _$Telemetry {
       message: message,
       timestampUnixMillis: DateTime.now().millisecondsSinceEpoch,
     );
+    ref.read(recordingProvider.notifier).captureLog(entry);
     final updated = [entry, ...state.logs];
     if (updated.length > _maxLogs) {
       updated.removeRange(_maxLogs, updated.length);
@@ -183,6 +252,10 @@ class Telemetry extends _$Telemetry {
   void _handleError(String message) {
     if (_isDisposed) return;
     _addLog(LogLevel.error, 'CORE', message);
+    unawaited(
+      ref.read(recordingProvider.notifier).stop(reason: 'USB stream error'),
+    );
+    ref.read(recordingProvider.notifier).clearHistory();
     state = state.copyWith(
       connectionStatus: ConnectionStatus.error,
       errorMessage: message,
@@ -261,7 +334,12 @@ class Telemetry extends _$Telemetry {
   }
 
   void toggleFreeze() {
-    state = state.copyWith(isFrozen: !state.isFrozen);
+    final resume = state.isFrozen;
+    state = state.copyWith(
+      isFrozen: !state.isFrozen,
+      buffer: resume ? _liveBuffer : null,
+      cursorIndex: resume ? _liveCursor : null,
+    );
   }
 
   Future<void> configureSource({
@@ -276,20 +354,18 @@ class Telemetry extends _$Telemetry {
 
     final newBaud = baudRate ?? state.baudRate;
 
-    await ref.read(configProvider.notifier).updateConfig(
-          baudRate: newBaud,
-        );
+    await ref.read(configProvider.notifier).updateConfig(baudRate: newBaud);
 
-    state = state.copyWith(
-      baudRate: newBaud,
-    );
+    state = state.copyWith(baudRate: newBaud);
 
     await _startUsbSerial(newBaud);
   }
 
   Future<String> exportCsv() async {
     final buffer = StringBuffer();
-    buffer.writeln('index,timestamp_ms,raw_adc,voltage_mv,filtered_mv,is_r_peak,lead_off');
+    buffer.writeln(
+      'index,timestamp_ms,raw_adc,voltage_mv,filtered_mv,is_r_peak,lead_off',
+    );
 
     final cap = TelemetryState.bufferCapacity;
     final cursor = state.cursorIndex;

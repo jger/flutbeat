@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:usb_serial/usb_serial.dart';
 
@@ -21,6 +22,9 @@ class RawEcgFrame {
 /// Service managing USB Serial OTG communication with the ESP
 class UsbSerialService {
   UsbPort? _port;
+  int? connectedDeviceId;
+  final _disconnectController = StreamController<void>.broadcast();
+  Stream<void> get disconnectionStream => _disconnectController.stream;
   StreamSubscription<Uint8List>? _streamSub;
   StreamSubscription<UsbEvent>? _usbEventSub;
 
@@ -68,10 +72,7 @@ class UsbSerialService {
   }
 
   /// Connects to a USB Serial device at the specified baud rate
-  Future<bool> connect({
-    UsbDevice? device,
-    int baudRate = 115200,
-  }) async {
+  Future<bool> connect({UsbDevice? device, int baudRate = 115200}) async {
     await disconnect();
 
     try {
@@ -85,11 +86,15 @@ class UsbSerialService {
         targetDevice = devices.first;
       }
 
-      _statusController.add('Connecting to ${targetDevice.productName ?? targetDevice.deviceName}...');
+      _statusController.add(
+        'Connecting to ${targetDevice.productName ?? targetDevice.deviceName}...',
+      );
 
       final port = await targetDevice.create();
       if (port == null) {
-        _statusController.add('Failed to create USB port. Check OTG permissions.');
+        _statusController.add(
+          'Failed to create USB port. Check OTG permissions.',
+        );
         return false;
       }
 
@@ -109,6 +114,7 @@ class UsbSerialService {
       );
 
       _port = port;
+      connectedDeviceId = targetDevice.deviceId;
       _lineBuffer = '';
 
       _streamSub = port.inputStream?.listen(
@@ -124,7 +130,9 @@ class UsbSerialService {
         cancelOnError: true,
       );
 
-      _statusController.add('Connected @ $baudRate baud: ${targetDevice.productName ?? "ESP Device"}');
+      _statusController.add(
+        'Connected @ $baudRate baud: ${targetDevice.productName ?? "ESP Device"}',
+      );
       return true;
     } catch (e) {
       _statusController.add('USB connection error: $e');
@@ -193,6 +201,8 @@ class UsbSerialService {
         await _port!.close();
       } catch (_) {}
       _port = null;
+      connectedDeviceId = null;
+      if (!_disconnectController.isClosed) _disconnectController.add(null);
     }
   }
 
@@ -201,5 +211,6 @@ class UsbSerialService {
     disconnect();
     _frameController.close();
     _statusController.close();
+    _disconnectController.close();
   }
 }

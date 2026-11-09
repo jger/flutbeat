@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
+
 import '../../models/cardiac_metrics.dart';
 import '../../models/telemetry_state.dart';
 
 class ClinicalVitalsBar extends StatefulWidget {
-  const ClinicalVitalsBar({
-    super.key,
-    required this.state,
-  });
+  const ClinicalVitalsBar({super.key, required this.state});
 
   final TelemetryState state;
 
@@ -38,7 +36,9 @@ class _ClinicalVitalsBarState extends State<ClinicalVitalsBar>
     final currentBeatTs = widget.state.metrics.lastBeatTimestampMs.toInt();
     if (currentBeatTs > 0 && currentBeatTs != _lastBeatTimestamp) {
       _lastBeatTimestamp = currentBeatTs;
-      _heartAnimController.forward().then((_) => _heartAnimController.reverse());
+      _heartAnimController.forward().then((_) {
+        if (mounted) _heartAnimController.reverse();
+      });
     }
   }
 
@@ -134,10 +134,22 @@ class _HeartRateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (rhythmText, rhythmColor) = switch (rhythm) {
-      RhythmClassification.normalSinus => ('NORMAL SINUS', const Color(0xFF10B981)),
-      RhythmClassification.bradycardia => ('BRADYCARDIA', const Color(0xFFF59E0B)),
-      RhythmClassification.tachycardia => ('TACHYCARDIA', const Color(0xFFD946EF)),
-      RhythmClassification.irregularArrhythmia => ('IRREGULAR', const Color(0xFFEF4444)),
+      RhythmClassification.normalSinus => (
+        'NORMAL SINUS',
+        const Color(0xFF10B981),
+      ),
+      RhythmClassification.bradycardia => (
+        'BRADYCARDIA',
+        const Color(0xFFF59E0B),
+      ),
+      RhythmClassification.tachycardia => (
+        'TACHYCARDIA',
+        const Color(0xFFD946EF),
+      ),
+      RhythmClassification.irregularArrhythmia => (
+        'IRREGULAR',
+        const Color(0xFFEF4444),
+      ),
       _ => ('NO SIGNAL', const Color(0xFF6B7280)),
     };
 
@@ -158,7 +170,8 @@ class _HeartRateCard extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: (isLeadOff ? Colors.grey : const Color(0xFFEF4444)).withValues(alpha: 0.18),
+                color: (isLeadOff ? Colors.grey : const Color(0xFFEF4444))
+                    .withValues(alpha: 0.18),
               ),
               child: Icon(
                 Icons.favorite_rounded,
@@ -202,11 +215,17 @@ class _HeartRateCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: rhythmColor.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: rhythmColor.withValues(alpha: 0.4), width: 0.8),
+                    border: Border.all(
+                      color: rhythmColor.withValues(alpha: 0.4),
+                      width: 0.8,
+                    ),
                   ),
                   child: Text(
                     rhythmText,
@@ -382,9 +401,11 @@ class _SignalStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final loPlusOk = leadStatus != LeadStatus.leadOffPositive &&
+    final loPlusOk =
+        leadStatus != LeadStatus.leadOffPositive &&
         leadStatus != LeadStatus.leadOffBoth;
-    final loMinusOk = leadStatus != LeadStatus.leadOffNegative &&
+    final loMinusOk =
+        leadStatus != LeadStatus.leadOffNegative &&
         leadStatus != LeadStatus.leadOffBoth;
 
     const sourceLabel = 'USB OTG';
@@ -507,4 +528,3 @@ class _LeadPill extends StatelessWidget {
     );
   }
 }
-

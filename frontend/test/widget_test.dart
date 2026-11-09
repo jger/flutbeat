@@ -96,34 +96,37 @@ void main() {
       expect(rPeaksDetected, greaterThanOrEqualTo(2));
     });
 
-    test('EcgDspPipeline accurately calculates BPM across different heart rates', () {
-      for (final targetBpm in [50, 60, 72, 80, 100, 120]) {
-        final pipeline = EcgDspPipeline();
-        final sim = EcgSimulator(targetBpm: targetBpm);
-        int detectedBpm = 0;
+    test(
+      'EcgDspPipeline accurately calculates BPM across different heart rates',
+      () {
+        for (final targetBpm in [50, 60, 72, 80, 100, 120]) {
+          final pipeline = EcgDspPipeline();
+          final sim = EcgSimulator(targetBpm: targetBpm);
+          int detectedBpm = 0;
 
-        // Feed 10 seconds of 250 Hz signal (2500 samples)
-        for (int i = 0; i < 2500; i++) {
-          final s = sim.nextSample();
-          final processed = pipeline.processSample(
-            rawAdc: s.rawAdc,
-            loPlus: s.loPlus,
-            loMinus: s.loMinus,
-            timestampMs: i * 4,
-          );
-          if (processed.isRPeak) {
-            detectedBpm = processed.metrics.heartRateBpm;
+          // Feed 10 seconds of 250 Hz signal (2500 samples)
+          for (int i = 0; i < 2500; i++) {
+            final s = sim.nextSample();
+            final processed = pipeline.processSample(
+              rawAdc: s.rawAdc,
+              loPlus: s.loPlus,
+              loMinus: s.loMinus,
+              timestampMs: i * 4,
+            );
+            if (processed.isRPeak) {
+              detectedBpm = processed.metrics.heartRateBpm;
+            }
           }
-        }
 
-        // Expected to be within 2 BPM of target
-        expect(
-          (detectedBpm - targetBpm).abs(),
-          lessThanOrEqualTo(2),
-          reason: 'Failed for target BPM $targetBpm (detected: $detectedBpm)',
-        );
-      }
-    });
+          // Expected to be within 2 BPM of target
+          expect(
+            (detectedBpm - targetBpm).abs(),
+            lessThanOrEqualTo(2),
+            reason: 'Failed for target BPM $targetBpm (detected: $detectedBpm)',
+          );
+        }
+      },
+    );
 
     test('EcgDspPipeline recovers BPM detection after lead-off and reset', () {
       final pipeline = EcgDspPipeline();
@@ -181,114 +184,190 @@ void main() {
     });
 
     testWidgets(
-        'Renders full graph view by default, reveals all UI when toggle icon button is tapped',
-        (tester) async {
-      tester.view.physicalSize = const Size(1080, 1920);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
+      'Renders full graph view by default, reveals all UI when toggle icon button is tapped',
+      (tester) async {
+        tester.view.physicalSize = const Size(1080, 1920);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            sharedPreferencesProvider.overrideWithValue(prefs),
-            telemetryProvider.overrideWith(() => TelemetryNotifierMock()),
-          ],
-          child: const MaterialApp(
-            home: DashboardScreen(),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              sharedPreferencesProvider.overrideWithValue(prefs),
+              telemetryProvider.overrideWith(() => TelemetryNotifierMock()),
+            ],
+            child: const MaterialApp(home: DashboardScreen()),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      // Verify AppBar elements
-      expect(find.text('FlutBeat ECG Monitor'), findsOneWidget);
-      expect(find.text('USB OTG: Direct ESP (115200 baud)'), findsOneWidget);
-      expect(find.byType(BlinkingHeartbeatDot), findsOneWidget);
+        // Verify AppBar elements
+        expect(find.text('FlutBeat ECG Monitor'), findsOneWidget);
+        expect(find.text('USB OTG: Direct ESP (115200 baud)'), findsOneWidget);
+        expect(find.byType(BlinkingHeartbeatDot), findsOneWidget);
 
-      // Oscilloscope Canvas uses all available space
-      expect(find.byType(EcgOscilloscope), findsOneWidget);
-      expect(find.text('LEAD II  '), findsOneWidget);
+        // Oscilloscope Canvas uses all available space
+        expect(find.byType(EcgOscilloscope), findsOneWidget);
+        expect(find.text('LEAD II  '), findsOneWidget);
 
-      // By default in full graph mode, full controls and vitals are hidden
-      expect(find.byType(ClinicalVitalsBar), findsNothing);
-      expect(find.byType(EcgControlToolbar), findsNothing);
+        // By default in full graph mode, full controls and vitals are hidden
+        expect(find.byType(ClinicalVitalsBar), findsNothing);
+        expect(find.byType(EcgControlToolbar), findsNothing);
 
-      // Tap the toggle button to reveal all other UI
-      expect(find.byKey(const Key('toggle_ui_button')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('toggle_ui_button')));
-      await tester.pump();
+        // Tap the toggle button to reveal all other UI
+        expect(find.byKey(const Key('toggle_ui_button')), findsOneWidget);
+        await tester.tap(find.byKey(const Key('toggle_ui_button')));
+        await tester.pump();
 
-      // Now all other UI is visible
-      expect(find.byType(ClinicalVitalsBar), findsOneWidget);
-      expect(find.text('BPM'), findsOneWidget);
-      expect(find.text('NO SIGNAL'), findsOneWidget);
-      expect(find.text('CARDIAC METRICS'), findsOneWidget);
-      expect(find.text('LEAD DETECTION'), findsOneWidget);
-      expect(find.text('LO+ (D5)'), findsOneWidget);
-      expect(find.text('LO- (D6)'), findsOneWidget);
+        // Now all other UI is visible
+        expect(find.byType(ClinicalVitalsBar), findsOneWidget);
+        expect(find.text('BPM'), findsOneWidget);
+        expect(find.text('NO SIGNAL'), findsOneWidget);
+        expect(find.text('CARDIAC METRICS'), findsOneWidget);
+        expect(find.text('LEAD DETECTION'), findsOneWidget);
+        expect(find.text('LO+ (D5)'), findsOneWidget);
+        expect(find.text('LO- (D6)'), findsOneWidget);
 
-      // Verify Control Toolbar
-      expect(find.byType(EcgControlToolbar), findsOneWidget);
-      expect(find.text('FREEZE'), findsOneWidget);
-      expect(find.text('ICU SWEEP'), findsOneWidget);
-      expect(find.text('25 mm/s'), findsOneWidget);
+        // Verify Control Toolbar
+        expect(find.byType(EcgControlToolbar), findsOneWidget);
+        expect(find.text('FREEZE'), findsOneWidget);
+        expect(find.text('ICU SWEEP'), findsOneWidget);
+        expect(find.text('25 mm/s'), findsOneWidget);
 
-      // Verify Event & Log List Drawer
-      expect(find.byType(EventLogList), findsOneWidget);
-      expect(find.text('CARDIAC EVENTS'), findsOneWidget);
-      expect(find.text('SYSTEM LOGS'), findsOneWidget);
-    });
+        // Verify Event & Log List Drawer
+        expect(find.byType(EventLogList), findsOneWidget);
+        expect(find.text('CARDIAC EVENTS'), findsOneWidget);
+        expect(find.text('SYSTEM LOGS'), findsOneWidget);
+      },
+    );
 
-    testWidgets('Renders cleanly on narrow mobile screen without RenderFlex overflow',
-        (tester) async {
-      tester.view.physicalSize = const Size(360, 800);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
+    testWidgets(
+      'Renders cleanly on narrow mobile screen without RenderFlex overflow',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            sharedPreferencesProvider.overrideWithValue(prefs),
-            telemetryProvider.overrideWith(() => TelemetryNotifierMock()),
-          ],
-          child: const MaterialApp(
-            home: DashboardScreen(initialShowAllUi: true),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              sharedPreferencesProvider.overrideWithValue(prefs),
+              telemetryProvider.overrideWith(() => TelemetryNotifierMock()),
+            ],
+            child: const MaterialApp(
+              home: DashboardScreen(initialShowAllUi: true),
+            ),
           ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      expect(tester.takeException(), isNull);
-      expect(find.byType(ClinicalVitalsBar), findsOneWidget);
-      expect(find.byType(DashboardScreen), findsOneWidget);
-    });
+        expect(tester.takeException(), isNull);
+        expect(find.byType(ClinicalVitalsBar), findsOneWidget);
+        expect(find.byType(DashboardScreen), findsOneWidget);
+      },
+    );
 
-    testWidgets('Renders cleanly in landscape orientation without RenderFlex overflow',
-        (tester) async {
-      tester.view.physicalSize = const Size(800, 360);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
+    testWidgets(
+      'Renders cleanly in landscape orientation without RenderFlex overflow',
+      (tester) async {
+        tester.view.physicalSize = const Size(800, 360);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            sharedPreferencesProvider.overrideWithValue(prefs),
-            telemetryProvider.overrideWith(() => TelemetryNotifierMock()),
-          ],
-          child: const MaterialApp(
-            home: DashboardScreen(initialShowAllUi: true),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              sharedPreferencesProvider.overrideWithValue(prefs),
+              telemetryProvider.overrideWith(() => TelemetryNotifierMock()),
+            ],
+            child: const MaterialApp(
+              home: DashboardScreen(initialShowAllUi: true),
+            ),
           ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      expect(tester.takeException(), isNull);
-      expect(find.byType(EcgOscilloscope), findsOneWidget);
-      expect(find.byType(ClinicalVitalsBar), findsOneWidget);
-      expect(find.byType(EcgControlToolbar), findsOneWidget);
-    });
+        expect(tester.takeException(), isNull);
+        expect(find.byType(EcgOscilloscope), findsOneWidget);
+        expect(find.byType(ClinicalVitalsBar), findsOneWidget);
+        expect(find.byType(EcgControlToolbar), findsOneWidget);
+      },
+    );
+
+    for (final showDetails in [false, true]) {
+      testWidgets('Landscape respects system insets (details: $showDetails)', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(800, 360);
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = FakeViewPadding(
+          left: 32,
+          top: 24,
+          right: 16,
+          bottom: 24,
+        );
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              sharedPreferencesProvider.overrideWithValue(prefs),
+              telemetryProvider.overrideWith(() => TelemetryNotifierMock()),
+            ],
+            child: MaterialApp(
+              home: DashboardScreen(initialShowAllUi: showDetails),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        final graph = tester.getRect(find.byType(EcgOscilloscope));
+        expect(graph.left, greaterThanOrEqualTo(32));
+        expect(graph.top, greaterThanOrEqualTo(24));
+        expect(graph.right, lessThanOrEqualTo(784));
+        expect(graph.bottom, lessThanOrEqualTo(336));
+        final legend = tester.getRect(find.text('LEAD II  '));
+        final toggle = tester.getRect(
+          find.byKey(const Key('toggle_ui_button')),
+        );
+        expect(legend.overlaps(toggle), isFalse);
+        await tester.tap(find.byKey(const Key('toggle_ui_button')));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets(
+      'Short portrait details keep a usable graph and accessible controls',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              sharedPreferencesProvider.overrideWithValue(prefs),
+              telemetryProvider.overrideWith(() => TelemetryNotifierMock()),
+            ],
+            child: const MaterialApp(
+              home: DashboardScreen(initialShowAllUi: true),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(
+          tester.getSize(find.byType(EcgOscilloscope)).height,
+          greaterThan(250),
+        );
+        await tester.ensureVisible(find.text('FREEZE'));
+        await tester.tap(find.text('FREEZE'));
+        await tester.pump();
+        expect(find.text('RESUME'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets('Toggles Freeze button state', (tester) async {
       tester.view.physicalSize = const Size(1080, 1920);
@@ -322,9 +401,7 @@ void main() {
             sharedPreferencesProvider.overrideWithValue(prefs),
             telemetryProvider.overrideWith(() => mock),
           ],
-          child: const MaterialApp(
-            home: DashboardScreen(),
-          ),
+          child: const MaterialApp(home: DashboardScreen()),
         ),
       );
       await tester.pump();
@@ -344,26 +421,26 @@ void main() {
       await tester.pump();
     });
 
-    testWidgets('Config screen navigates, displays USB OTG settings and defaults button',
-        (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            sharedPreferencesProvider.overrideWithValue(prefs),
-            telemetryProvider.overrideWith(() => TelemetryNotifierMock()),
-          ],
-          child: const MaterialApp(
-            home: ConfigScreen(),
+    testWidgets(
+      'Config screen navigates, displays USB OTG settings and defaults button',
+      (tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              sharedPreferencesProvider.overrideWithValue(prefs),
+              telemetryProvider.overrideWith(() => TelemetryNotifierMock()),
+            ],
+            child: const MaterialApp(home: ConfigScreen()),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('Connection Settings'), findsOneWidget);
-      expect(find.text('Direct USB OTG Connection'), findsOneWidget);
-      expect(find.text('DETECTED USB DEVICES'), findsOneWidget);
-      expect(find.text('Defaults'), findsOneWidget);
-      expect(find.text('Connect to ESP OTG'), findsOneWidget);
-    });
+        expect(find.text('Connection Settings'), findsOneWidget);
+        expect(find.text('Direct USB OTG Connection'), findsOneWidget);
+        expect(find.text('DETECTED USB DEVICES'), findsOneWidget);
+        expect(find.text('Defaults'), findsOneWidget);
+        expect(find.text('Connect to ESP OTG'), findsOneWidget);
+      },
+    );
   });
 }
 

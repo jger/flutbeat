@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../models/telemetry_state.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/telemetry_provider.dart';
@@ -9,12 +10,10 @@ import '../widgets/ecg_control_toolbar.dart';
 import '../widgets/ecg_oscilloscope_painter.dart';
 import '../widgets/event_log_list.dart';
 import 'config_screen.dart';
+import '../../recording/recording_ui.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
-  const DashboardScreen({
-    super.key,
-    this.initialShowAllUi = false,
-  });
+  const DashboardScreen({super.key, this.initialShowAllUi = false});
 
   final bool initialShowAllUi;
 
@@ -37,7 +36,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final telemetry = ref.watch(telemetryProvider);
     final notifier = ref.read(telemetryProvider.notifier);
     final config = ref.watch(configProvider);
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     final statusSubtitle =
         'USB OTG: ${telemetry.connectedDeviceName ?? "Direct ESP"} (${config.baudRate} baud)';
@@ -57,7 +57,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.monitor_heart_rounded, color: Color(0xFF00FF88), size: 18),
+                      const Icon(
+                        Icons.monitor_heart_rounded,
+                        color: Color(0xFF00FF88),
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       const Flexible(
                         child: Text(
@@ -119,18 +123,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ],
             ),
       body: SafeArea(
-        top: !isLandscape,
-        bottom: !isLandscape,
+        top: true,
+        bottom: true,
         child: Column(
           children: [
             // Error banner only in portrait when not connected to save landscape vertical space
-            if (!isLandscape && telemetry.errorMessage != null && !telemetry.isConnected)
+            if (telemetry.errorMessage != null && !telemetry.isConnected)
               _buildErrorBanner(telemetry),
 
             // Main body area (Fullscreen Graph vs Responsive UI)
             Expanded(
               child: _buildMainContent(telemetry, notifier, isLandscape),
             ),
+            const RecordingBar(),
           ],
         ),
       ),
@@ -144,7 +149,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       color: const Color(0xFFEF4444).withValues(alpha: 0.18),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 18),
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Color(0xFFEF4444),
+            size: 18,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -163,11 +172,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildMainContent(TelemetryState telemetry, Telemetry notifier, bool isLandscape) {
+  Widget _buildMainContent(
+    TelemetryState telemetry,
+    Telemetry notifier,
+    bool isLandscape,
+  ) {
     void handleSettings() {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const ConfigScreen()),
-      );
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const ConfigScreen()));
     }
 
     void handleReconnect() {
@@ -184,9 +196,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (!_showAllUi) {
       // FULL GRAPH VIEW: uses all available space (edge-to-edge in landscape)
       return Padding(
-        padding: isLandscape
-            ? EdgeInsets.zero
-            : const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.all(8),
         child: EcgOscilloscope(
           state: telemetry,
           notifier: notifier,
@@ -198,7 +208,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       );
     }
 
-    if (isLandscape) {
+    if (isLandscape && MediaQuery.sizeOf(context).width >= 700) {
       // LANDSCAPE RESPONSIVE VIEW: Graph on left, Controls & Vitals on right
       return Padding(
         padding: const EdgeInsets.all(4),
@@ -236,7 +246,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.white12),
                       ),
-                      child: EcgControlToolbar(state: telemetry, notifier: notifier),
+                      child: EcgControlToolbar(
+                        state: telemetry,
+                        notifier: notifier,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     SizedBox(
@@ -258,51 +271,79 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       );
     }
 
-    // PORTRAIT VIEW with all UI visible
-    return Column(
-      children: [
-        // Top Section: Responsive Clinical Vitals Bar
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-          child: ClinicalVitalsBar(state: telemetry),
-        ),
-
-        // Middle Section: Interactive ECG Oscilloscope Canvas
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: EcgOscilloscope(
-              state: telemetry,
-              notifier: notifier,
-              onToggleAllUi: () => setState(() => _showAllUi = false),
-              isAllUiVisible: true,
+    // Keep the graph usable when the details exceed a short viewport.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scrollDetails = constraints.maxHeight < 700;
+        final content = Column(
+          children: [
+            // Top Section: Responsive Clinical Vitals Bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+              child: ClinicalVitalsBar(state: telemetry),
             ),
-          ),
-        ),
 
-        // ECG Control Toolbar
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-          child: EcgControlToolbar(state: telemetry, notifier: notifier),
-        ),
+            // Middle Section: Interactive ECG Oscilloscope Canvas
+            if (scrollDetails)
+              SizedBox(
+                height: 320,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: EcgOscilloscope(
+                    state: telemetry,
+                    notifier: notifier,
+                    onToggleAllUi: () => setState(() => _showAllUi = false),
+                    isAllUiVisible: true,
+                    onOpenSettings: handleSettings,
+                    onReconnect: handleReconnect,
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: EcgOscilloscope(
+                    state: telemetry,
+                    notifier: notifier,
+                    onToggleAllUi: () => setState(() => _showAllUi = false),
+                    isAllUiVisible: true,
+                  ),
+                ),
+              ),
 
-        // Bottom Section: Collapsible Cardiac Events & System Logs Drawer
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
-          height: _isEventDrawerExpanded ? 220 : 64,
-          child: ClipRect(
-            child: EventLogList(
-              isExpanded: _isEventDrawerExpanded,
-              onToggleExpanded: () {
-                setState(() {
-                  _isEventDrawerExpanded = !_isEventDrawerExpanded;
-                });
-              },
+            // ECG Control Toolbar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: EcgControlToolbar(state: telemetry, notifier: notifier),
             ),
-          ),
-        ),
-      ],
+
+            // Bottom Section: Collapsible Cardiac Events & System Logs Drawer
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              height: _isEventDrawerExpanded ? 220 : 64,
+              child: ClipRect(
+                child: EventLogList(
+                  isExpanded: _isEventDrawerExpanded,
+                  onToggleExpanded: () {
+                    setState(() {
+                      _isEventDrawerExpanded = !_isEventDrawerExpanded;
+                    });
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+        return scrollDetails ? SingleChildScrollView(child: content) : content;
+      },
     );
   }
 }
