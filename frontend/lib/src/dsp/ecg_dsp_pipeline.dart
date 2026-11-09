@@ -126,7 +126,7 @@ class LowPass40Hz {
 class PanTompkinsDetector {
   PanTompkinsDetector()
       : mwiWindowSize = (0.12 * kSampleRateHz).round().clamp(1, 100),
-        refractorySamples = (0.20 * kSampleRateHz).round();
+        refractorySamples = (0.26 * kSampleRateHz).round(); // 65 samples = 260 ms
 
   final int mwiWindowSize;
   final int refractorySamples;
@@ -137,10 +137,14 @@ class PanTompkinsDetector {
   final Queue<double> _mwiBuffer = Queue<double>();
   double _mwiSum = 0.0;
 
+  double _mwiPrev2 = 0.0;
+  double _mwiPrev1 = 0.0;
+
   double _threshold = 0.005;
   double _noiseLevel = 0.001;
   double _signalLevel = 0.02;
   int _refractoryCount = 0;
+  int _samplesSinceLastPeak = 0;
 
   bool process(double filteredSample) {
     // 1. Derivative: y[n] = (2x[n] + x[n-1] - x[n-3] - 2x[n-4]) / 8
@@ -163,25 +167,43 @@ class PanTompkinsDetector {
       final old = _mwiBuffer.removeFirst();
       _mwiSum = math.max(0.0, _mwiSum - old);
     }
-    final mwiVal = _mwiSum / mwiWindowSize;
+    final mwiCurr = _mwiSum / mwiWindowSize;
 
-    // 4. Refractory blanking period
+    _samplesSinceLastPeak++;
+
+    // 4. Searchback mechanism: if no beat in 1.5 seconds, gradually lower threshold
+    if (_samplesSinceLastPeak > (1.5 * kSampleRateHz).round()) {
+      _threshold = math.max(_noiseLevel * 1.2, _threshold * 0.995);
+    }
+
     if (_refractoryCount > 0) {
       _refractoryCount--;
+      _mwiPrev2 = _mwiPrev1;
+      _mwiPrev1 = mwiCurr;
       return false;
     }
 
-    // 5. Adaptive threshold test
-    if (mwiVal > _threshold) {
-      _signalLevel = 0.125 * mwiVal + 0.875 * _signalLevel;
-      _threshold = _noiseLevel + 0.25 * (_signalLevel - _noiseLevel);
-      _refractoryCount = refractorySamples;
-      return true;
-    } else {
-      _noiseLevel = 0.125 * mwiVal + 0.875 * _noiseLevel;
-      _threshold = _noiseLevel + 0.25 * (_signalLevel - _noiseLevel);
-      return false;
+    // 5. Peak Detection on MWI (detect local maximum)
+    bool isPeak = false;
+    if (_mwiPrev1 > _mwiPrev2 && _mwiPrev1 >= mwiCurr && _mwiPrev1 > 0.00005) {
+      final candidatePeak = _mwiPrev1;
+
+      if (candidatePeak > _threshold) {
+        _signalLevel = 0.125 * candidatePeak + 0.875 * _signalLevel;
+        _threshold = _noiseLevel + 0.25 * (_signalLevel - _noiseLevel);
+        _refractoryCount = refractorySamples;
+        _samplesSinceLastPeak = 0;
+        isPeak = true;
+      } else {
+        _noiseLevel = 0.125 * candidatePeak + 0.875 * _noiseLevel;
+        _threshold = _noiseLevel + 0.25 * (_signalLevel - _noiseLevel);
+      }
     }
+
+    _mwiPrev2 = _mwiPrev1;
+    _mwiPrev1 = mwiCurr;
+
+    return isPeak;
   }
 
   void reset() {
@@ -189,10 +211,13 @@ class PanTompkinsDetector {
     _derivIdx = 0;
     _mwiBuffer.clear();
     _mwiSum = 0.0;
-    _threshold = 0.08;
-    _noiseLevel = 0.02;
-    _signalLevel = 0.25;
+    _mwiPrev2 = 0.0;
+    _mwiPrev1 = 0.0;
+    _threshold = 0.005;
+    _noiseLevel = 0.001;
+    _signalLevel = 0.02;
     _refractoryCount = 0;
+    _samplesSinceLastPeak = 0;
   }
 }
 
@@ -230,8 +255,8 @@ class EcgDspPipeline {
   int? _lastRPeakSample;
   final List<int> _rrIntervalsMs = [];
   int _totalBeats = 0;
-  int _currentBpm = 72;
-  int _currentRrMs = 833;
+  int _currentBpm = 0;
+  int _currentRrMs = 0;
   int _lastBeatTsMs = 0;
   int _eventSequence = 0;
   LeadStatus _lastLeadStatus = LeadStatus.leadsConnected;
@@ -273,16 +298,24 @@ class EcgDspPipeline {
           final deltaSamples = _sampleCount - _lastRPeakSample!;
           final rrMs = ((deltaSamples / kSampleRateHz) * 1000.0).round();
 
-          // Physiologically valid heart rate bounds: 30 BPM (2000 ms) to 220 BPM (272 ms)
-          if (rrMs >= 272 && rrMs <= 2000) {
+          // Physiologically valid heart rate bounds: 30 BPM (2000 ms) to 230 BPM (260 ms)
+          if (rrMs >= 260 && rrMs <= 2000) {
             _currentRrMs = rrMs;
             _rrIntervalsMs.add(rrMs);
-            if (_rrIntervalsMs.length > 16) {
+            if (_rrIntervalsMs.length > 8) {
               _rrIntervalsMs.removeAt(0);
             }
 
-            final avgRr = _rrIntervalsMs.reduce((a, b) => a + b) / _rrIntervalsMs.length;
-            _currentBpm = (60000.0 / avgRr).round();
+            // Robust median / trimmed-mean computation to reject outliers
+            final sorted = List<int>.from(_rrIntervalsMs)..sort();
+            double avgRr;
+            if (sorted.length >= 4) {
+              final trimmed = sorted.sublist(1, sorted.length - 1);
+              avgRr = trimmed.reduce((a, b) => a + b) / trimmed.length;
+            } else {
+              avgRr = sorted.reduce((a, b) => a + b) / sorted.length;
+            }
+            _currentBpm = (60000.0 / avgRr).round().clamp(30, 230);
           }
         }
         _lastRPeakSample = _sampleCount;
@@ -396,8 +429,8 @@ class EcgDspPipeline {
     _lastRPeakSample = null;
     _rrIntervalsMs.clear();
     _totalBeats = 0;
-    _currentBpm = 72;
-    _currentRrMs = 833;
+    _currentBpm = 0;
+    _currentRrMs = 0;
     _lastBeatTsMs = 0;
     _lastLeadStatus = LeadStatus.leadsConnected;
   }

@@ -22,9 +22,11 @@ enum PaperSpeed {
 }
 
 enum GainSetting {
+  gain2_5(2.5, '2.5 mm/mV (0.25x)'),
   gain5(5.0, '5 mm/mV (0.5x)'),
   gain10(10.0, '10 mm/mV (1.0x)'),
-  gain20(20.0, '20 mm/mV (2.0x)');
+  gain20(20.0, '20 mm/mV (2.0x)'),
+  gain40(40.0, '40 mm/mV (4.0x)');
 
   const GainSetting(this.mmPerMv, this.label);
   final double mmPerMv;
@@ -82,6 +84,7 @@ class TelemetryState {
     this.sweepMode = SweepMode.eraseBarSweep,
     this.paperSpeed = PaperSpeed.speed25,
     this.gain = GainSetting.gain10,
+    this.verticalZoom = 1.0,
     this.filterMode = SignalFilterMode.dspFiltered,
     this.isFrozen = false,
     this.totalSamples = 0,
@@ -108,6 +111,7 @@ class TelemetryState {
   final SweepMode sweepMode;
   final PaperSpeed paperSpeed;
   final GainSetting gain;
+  final double verticalZoom;
   final SignalFilterMode filterMode;
   final bool isFrozen;
   final int totalSamples;
@@ -133,6 +137,7 @@ class TelemetryState {
     SweepMode? sweepMode,
     PaperSpeed? paperSpeed,
     GainSetting? gain,
+    double? verticalZoom,
     SignalFilterMode? filterMode,
     bool? isFrozen,
     int? totalSamples,
@@ -155,6 +160,7 @@ class TelemetryState {
       sweepMode: sweepMode ?? this.sweepMode,
       paperSpeed: paperSpeed ?? this.paperSpeed,
       gain: gain ?? this.gain,
+      verticalZoom: verticalZoom ?? this.verticalZoom,
       filterMode: filterMode ?? this.filterMode,
       isFrozen: isFrozen ?? this.isFrozen,
       totalSamples: totalSamples ?? this.totalSamples,

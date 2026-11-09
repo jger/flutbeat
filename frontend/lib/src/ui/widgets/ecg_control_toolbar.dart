@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../models/cardiac_metrics.dart';
 import '../../models/telemetry_state.dart';
 import '../../providers/telemetry_provider.dart';
 
@@ -99,7 +98,7 @@ class EcgControlToolbar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
 
-          // 4. Gain Menu (5, 10, 20 mm/mV)
+          // 4. Gain Menu (2.5, 5, 10, 20, 40 mm/mV)
           PopupMenuButton<GainSetting>(
             initialValue: state.gain,
             onSelected: notifier.setGain,
@@ -130,6 +129,47 @@ class EcgControlToolbar extends StatelessWidget {
                       child: Text(gain.label, style: const TextStyle(fontSize: 12)),
                     ))
                 .toList(),
+          ),
+          const SizedBox(width: 8),
+
+          // Quick Zoom Controls in Toolbar
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.remove, size: 14),
+                  tooltip: 'Vertical Zoom Out (-)',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: notifier.zoomOutVertical,
+                ),
+                Text(
+                  '${state.verticalZoom.toStringAsFixed(1)}x',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF38BDF8),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add, size: 14),
+                  tooltip: 'Vertical Zoom In (+)',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: notifier.zoomInVertical,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.fit_screen_rounded, size: 14),
+                  tooltip: 'Auto-Scale Waveform',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: notifier.autoScaleVerticalZoom,
+                ),
+              ],
+            ),
           ),
           const SizedBox(width: 8),
 
@@ -166,54 +206,7 @@ class EcgControlToolbar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
 
-          // 6. Source & Sim BPM Configuration
-          PopupMenuButton<SourceMode>(
-            initialValue: state.sourceMode,
-            onSelected: (mode) => notifier.configureSource(mode: mode),
-            tooltip: 'Ingestion Source',
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.hub_outlined, size: 14, color: Colors.white70),
-                  const SizedBox(width: 6),
-                  Text(
-                    state.sourceMode == SourceMode.usbSerial ? 'USB OTG' : 'SIMULATOR',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.arrow_drop_down, size: 14, color: Colors.white54),
-                ],
-              ),
-            ),
-            itemBuilder: (_) => [
-              const PopupMenuItem(
-                value: SourceMode.usbSerial,
-                child: Text('ESP USB OTG (Physical)', style: TextStyle(fontSize: 12)),
-              ),
-              const PopupMenuItem(
-                value: SourceMode.simulator,
-                child: Text('Synthetic ECG Simulator', style: TextStyle(fontSize: 12)),
-              ),
-            ],
-          ),
-          const SizedBox(width: 8),
-
-          // 7. Sim BPM Quick Adjust (if in simulator mode)
-          if (state.sourceMode == SourceMode.simulator)
-            IconButton(
-              icon: const Icon(Icons.tune_rounded, size: 18),
-              tooltip: 'Adjust Simulated BPM',
-              visualDensity: VisualDensity.compact,
-              onPressed: () => _showSimBpmDialog(context, state, notifier),
-            ),
-
-          // 8. CSV Export Button
+          // 6. CSV Export Button
           IconButton(
             icon: const Icon(Icons.download_rounded, size: 18),
             tooltip: 'Export ECG Ring Buffer to CSV',
@@ -232,74 +225,6 @@ class EcgControlToolbar extends StatelessWidget {
             },
           ),
         ],
-      ),
-    );
-  }
-
-  void _showSimBpmDialog(
-    BuildContext context,
-    TelemetryState state,
-    Telemetry notifier,
-  ) {
-    double currentBpm = state.targetSimBpm.toDouble();
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: const Text('Simulated Heart Rate (BPM)'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '${currentBpm.round()} BPM',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF00FF88),
-                  fontFamily: 'monospace',
-                ),
-              ),
-              Slider(
-                value: currentBpm,
-                min: 40,
-                max: 180,
-                divisions: 28,
-                label: '${currentBpm.round()} BPM',
-                onChanged: (val) => setState(() => currentBpm = val),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton(
-                    onPressed: () => setState(() => currentBpm = 50),
-                    child: const Text('Brady (50)'),
-                  ),
-                  TextButton(
-                    onPressed: () => setState(() => currentBpm = 75),
-                    child: const Text('Normal (75)'),
-                  ),
-                  TextButton(
-                    onPressed: () => setState(() => currentBpm = 120),
-                    child: const Text('Tachy (120)'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                notifier.configureSource(targetSimBpm: currentBpm.round());
-                Navigator.of(dialogCtx).pop();
-              },
-              child: const Text('Apply'),
-            ),
-          ],
-        ),
       ),
     );
   }

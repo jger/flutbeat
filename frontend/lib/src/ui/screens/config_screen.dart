@@ -18,8 +18,6 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
   List<UsbDevice> _usbDevices = [];
   bool _isScanning = false;
   late int _selectedBaudRate;
-  late SourceMode _selectedMode;
-  late int _simBpm;
 
   static const List<int> _supportedBaudRates = [
     115200,
@@ -35,8 +33,6 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
     super.initState();
     final config = ref.read(configProvider);
     _selectedBaudRate = config.baudRate;
-    _selectedMode = config.sourceMode;
-    _simBpm = config.targetSimBpm;
     _scanUsbDevices();
   }
 
@@ -60,24 +56,18 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
   void _saveAndConnect() async {
     await ref.read(configProvider.notifier).updateConfig(
           baudRate: _selectedBaudRate,
-          sourceMode: _selectedMode,
-          targetSimBpm: _simBpm,
+          sourceMode: SourceMode.usbSerial,
         );
 
     await ref.read(telemetryProvider.notifier).configureSource(
-          mode: _selectedMode,
+          mode: SourceMode.usbSerial,
           baudRate: _selectedBaudRate,
-          targetSimBpm: _simBpm,
         );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            _selectedMode == SourceMode.usbSerial
-                ? 'Connecting to USB Serial @ $_selectedBaudRate baud...'
-                : 'Switched to Built-in ECG Simulator ($_simBpm BPM)',
-          ),
+          content: Text('Connecting to USB Serial @ $_selectedBaudRate baud...'),
           backgroundColor: const Color(0xFF10B981),
           behavior: SnackBarBehavior.floating,
         ),
@@ -91,8 +81,6 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
     final config = ref.read(configProvider);
     setState(() {
       _selectedBaudRate = config.baudRate;
-      _selectedMode = config.sourceMode;
-      _simBpm = config.targetSimBpm;
     });
 
     ref.read(telemetryProvider.notifier).reconnect();
@@ -174,40 +162,8 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Source Mode Selection
-            const Text(
-              'TELEMETRY DATA SOURCE',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: Colors.white54,
-                letterSpacing: 0.8,
-              ),
-            ),
-            const SizedBox(height: 10),
-            SegmentedButton<SourceMode>(
-              segments: const [
-                ButtonSegment<SourceMode>(
-                  value: SourceMode.usbSerial,
-                  icon: Icon(Icons.usb_rounded, size: 18),
-                  label: Text('ESP USB OTG'),
-                ),
-                ButtonSegment<SourceMode>(
-                  value: SourceMode.simulator,
-                  icon: Icon(Icons.tune_rounded, size: 18),
-                  label: Text('ECG Simulator'),
-                ),
-              ],
-              selected: {_selectedMode},
-              onSelectionChanged: (newSelection) {
-                setState(() => _selectedMode = newSelection.first);
-              },
-            ),
-            const SizedBox(height: 24),
-
             // USB OTG Devices Card
-            if (_selectedMode == SourceMode.usbSerial) ...[
-              Row(
+            Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
@@ -311,49 +267,6 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
                   }
                 },
               ),
-            ] else ...[
-              // Simulator settings
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF141923),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Simulated Heart Rate',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                        Text(
-                          '$_simBpm BPM',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF00FF88),
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ],
-                    ),
-                    Slider(
-                      value: _simBpm.toDouble(),
-                      min: 40,
-                      max: 180,
-                      divisions: 28,
-                      label: '$_simBpm BPM',
-                      onChanged: (val) => setState(() => _simBpm = val.round()),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
             const SizedBox(height: 32),
 
             // Save & Connect Button
@@ -368,9 +281,9 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
                 ),
               ),
               icon: const Icon(Icons.power_rounded, size: 20),
-              label: Text(
-                _selectedMode == SourceMode.usbSerial ? 'Connect to ESP OTG' : 'Activate Simulator',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              label: const Text(
+                'Connect to ESP OTG',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ],

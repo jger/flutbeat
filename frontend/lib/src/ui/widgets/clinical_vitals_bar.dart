@@ -387,10 +387,7 @@ class _SignalStatusCard extends StatelessWidget {
     final loMinusOk = leadStatus != LeadStatus.leadOffNegative &&
         leadStatus != LeadStatus.leadOffBoth;
 
-    final sourceLabel = switch (sourceMode) {
-      SourceMode.usbSerial => 'USB OTG',
-      SourceMode.simulator => 'SIMULATOR',
-    };
+    const sourceLabel = 'USB OTG';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),

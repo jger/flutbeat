@@ -28,13 +28,13 @@ enum SourceMode {
 /// Real-time clinical cardiac vital metrics computed by the DSP engine
 class CardiacMetrics {
   const CardiacMetrics({
-    this.heartRateBpm = 72,
-    this.rrIntervalMs = 833,
-    this.hrvSdnnMs = 38.0,
-    this.hrvRmssdMs = 29.0,
-    this.leadStatus = LeadStatus.leadsConnected,
-    this.rhythm = RhythmClassification.normalSinus,
-    this.signalQualityPercent = 98,
+    this.heartRateBpm = 0,
+    this.rrIntervalMs = 0,
+    this.hrvSdnnMs = 0.0,
+    this.hrvRmssdMs = 0.0,
+    this.leadStatus = LeadStatus.unspecified,
+    this.rhythm = RhythmClassification.noSignal,
+    this.signalQualityPercent = 0,
     this.totalBeats = 0,
     this.lastBeatTimestampMs = 0,
   });

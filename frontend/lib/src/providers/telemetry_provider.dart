@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../dsp/ecg_dsp_pipeline.dart';
-import '../dsp/ecg_simulator.dart';
 import '../models/cardiac_metrics.dart';
 import '../models/telemetry_state.dart';
 import '../services/usb_serial_service.dart';
@@ -17,18 +16,15 @@ class Telemetry extends _$Telemetry {
 
   final UsbSerialService _serialService = UsbSerialService();
   final EcgDspPipeline _dsp = EcgDspPipeline();
-  late final EcgSimulator _simulator;
 
   StreamSubscription<RawEcgFrame>? _frameSub;
   StreamSubscription<String>? _statusSub;
-  Timer? _simTimer;
   Timer? _uptimeTimer;
   bool _isDisposed = false;
 
   @override
   TelemetryState build() {
     final config = ref.watch(configProvider);
-    _simulator = EcgSimulator(targetBpm: config.targetSimBpm);
 
     _isDisposed = false;
 
@@ -45,20 +41,17 @@ class Telemetry extends _$Telemetry {
       }
     });
 
-    // Initialize telemetry source
-    Future.microtask(() => _initSource(config.sourceMode, config.baudRate));
+    // Initialize direct USB Serial connection
+    Future.microtask(() => _startUsbSerial(config.baudRate));
 
     return TelemetryState(
-      sourceMode: config.sourceMode,
-      targetSimBpm: config.targetSimBpm,
+      sourceMode: SourceMode.usbSerial,
       baudRate: config.baudRate,
       connectionStatus: ConnectionStatus.connecting,
     );
   }
 
   void _cleanup() {
-    _simTimer?.cancel();
-    _simTimer = null;
     _uptimeTimer?.cancel();
     _uptimeTimer = null;
     _frameSub?.cancel();
@@ -68,19 +61,7 @@ class Telemetry extends _$Telemetry {
     _serialService.dispose();
   }
 
-  Future<void> _initSource(SourceMode mode, int baudRate) async {
-    if (_isDisposed) return;
-
-    if (mode == SourceMode.simulator) {
-      _startSimulator();
-    } else {
-      await _startUsbSerial(baudRate);
-    }
-  }
-
   Future<void> _startUsbSerial(int baudRate) async {
-    _simTimer?.cancel();
-    _simTimer = null;
     await _serialService.disconnect();
 
     _frameSub?.cancel();
@@ -100,7 +81,7 @@ class Telemetry extends _$Telemetry {
       _addLog(LogLevel.warn, 'USB-OTG', 'No physical USB device found. Check OTG cable & permissions.');
       state = state.copyWith(
         connectionStatus: ConnectionStatus.disconnected,
-        errorMessage: 'No USB device detected. Plug ESP board via OTG cable or switch to Simulator.',
+        errorMessage: 'No USB device detected. Connect ESP board via OTG cable.',
       );
       return;
     }
@@ -137,40 +118,6 @@ class Telemetry extends _$Telemetry {
         errorMessage: 'Failed to open USB port for $devName.',
       );
     }
-  }
-
-  void _startSimulator() {
-    _serialService.disconnect();
-    _frameSub?.cancel();
-    _statusSub?.cancel();
-
-    state = state.copyWith(
-      connectionStatus: ConnectionStatus.connected,
-      sourceMode: SourceMode.simulator,
-      connectedDeviceName: 'Synthetic ECG Simulator',
-      clearError: true,
-    );
-
-    _addLog(LogLevel.info, 'SIMULATOR', 'Started built-in ECG Simulator at ${state.targetSimBpm} BPM.');
-
-    // 250 Hz = 10 samples every 40 ms
-    _simTimer?.cancel();
-    _simTimer = Timer.periodic(const Duration(milliseconds: 40), (_) {
-      if (_isDisposed || state.isFrozen) return;
-
-      final now = DateTime.now().millisecondsSinceEpoch;
-      for (int i = 0; i < 10; i++) {
-        final sample = _simulator.nextSample();
-        _handleRawFrame(
-          RawEcgFrame(
-            rawAdc: sample.rawAdc,
-            loPlus: sample.loPlus,
-            loMinus: sample.loMinus,
-            timestampMs: now + (i * 4),
-          ),
-        );
-      }
-    });
   }
 
   void _handleRawFrame(RawEcgFrame frame) {
@@ -259,6 +206,53 @@ class Telemetry extends _$Telemetry {
     state = state.copyWith(gain: gain);
   }
 
+  void setVerticalZoom(double zoom) {
+    state = state.copyWith(verticalZoom: zoom.clamp(0.2, 10.0));
+  }
+
+  void adjustVerticalZoom(double deltaScale) {
+    setVerticalZoom(state.verticalZoom * deltaScale);
+  }
+
+  void zoomInVertical() {
+    setVerticalZoom(state.verticalZoom * 1.25);
+  }
+
+  void zoomOutVertical() {
+    setVerticalZoom(state.verticalZoom / 1.25);
+  }
+
+  void resetVerticalZoom() {
+    state = state.copyWith(verticalZoom: 1.0);
+  }
+
+  void autoScaleVerticalZoom() {
+    double minVal = 0.0;
+    double maxVal = 0.0;
+    bool hasData = false;
+
+    for (final pt in state.buffer) {
+      if (pt.timestampMs == 0) continue;
+      final val = state.filterMode == SignalFilterMode.dspFiltered
+          ? pt.filteredMv
+          : pt.voltageMv;
+      if (!hasData) {
+        minVal = val;
+        maxVal = val;
+        hasData = true;
+      } else {
+        if (val < minVal) minVal = val;
+        if (val > maxVal) maxVal = val;
+      }
+    }
+
+    final p2p = maxVal - minVal;
+    if (p2p > 0.05) {
+      final newZoom = (1.8 / p2p).clamp(0.25, 8.0);
+      setVerticalZoom(newZoom);
+    }
+  }
+
   void toggleFilter() {
     final next = state.filterMode == SignalFilterMode.dspFiltered
         ? SignalFilterMode.rawAdc
@@ -280,25 +274,17 @@ class Telemetry extends _$Telemetry {
       _dsp.reset();
     }
 
-    final newMode = mode ?? state.sourceMode;
-    final newBpm = targetSimBpm ?? state.targetSimBpm;
     final newBaud = baudRate ?? state.baudRate;
 
-    _simulator.targetBpm = newBpm;
-
     await ref.read(configProvider.notifier).updateConfig(
-          sourceMode: newMode,
-          targetSimBpm: newBpm,
           baudRate: newBaud,
         );
 
     state = state.copyWith(
-      sourceMode: newMode,
-      targetSimBpm: newBpm,
       baudRate: newBaud,
     );
 
-    await _initSource(newMode, newBaud);
+    await _startUsbSerial(newBaud);
   }
 
   Future<String> exportCsv() async {
@@ -332,7 +318,7 @@ class Telemetry extends _$Telemetry {
     state = state.copyWith(logs: const []);
   }
 
-  void reconnect() {
-    _initSource(state.sourceMode, state.baudRate);
+  void reconnect({int? baudRate}) {
+    _startUsbSerial(baudRate ?? state.baudRate);
   }
 }
