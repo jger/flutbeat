@@ -976,10 +976,12 @@ packages:
   usb_serial:
     dependency: "direct main"
     description:
-      path: "packages/usb_serial"
-      relative: true
-    source: path
-    version: "0.5.2"
+      path: "."
+      ref: master
+      resolved-ref: "390288129fc8203daba9a1f1eceeba2ec0cbede2"
+      url: "https://github.com/altera2015/usbserial.git"
+    source: git
+    version: "0.5.1"
   uuid:
     dependency: transitive
     description:

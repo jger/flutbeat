@@ -17,7 +17,9 @@ dependencies:
 
   # Direct USB Serial OTG communication with ESP (No backend!)
   usb_serial:
-    path: packages/usb_serial
+    git:
+      url: https://github.com/altera2015/usbserial.git
+      ref: master
 
   # Local persistence for config settings
   shared_preferences: ^2.3.5
