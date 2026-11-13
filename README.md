@@ -1,4 +1,4 @@
-# ❤️ FlutBeat — Direct USB OTG ECG Telemetry & Clinical Oscilloscope
+# ❤️ FlutBeat — Direct USB OTG ECG Telemetry & Experimental Oscilloscope
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B.svg?logo=flutter)](https://flutter.dev)
 [![Architecture](https://img.shields.io/badge/Architecture-Direct_USB_OTG_(No_Backend)-green.svg)](#-system-architecture)
@@ -7,9 +7,15 @@
 [![Microcontroller](https://img.shields.io/badge/MCU-WeMos_D1_Mini_(ESP8266)_/_ESP32-005571.svg?logo=espressif)](https://www.wemos.cc/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**FlutBeat** is a clinical-grade, real-time Electrocardiogram (ECG) monitoring and telemetry system operating **directly between the ESP microcontroller and a Flutter mobile application via a physical USB-C OTG cable — requiring no backend server, no cloud, and no Wi-Fi network**.
+> [!WARNING]
+> **Experimental & Educational Use Only — Not a Medical Device**
+> FlutBeat is **not** clinical-grade, **not** calibrated, and **not** a medical device. It cannot replace a medical ECG or professional medical advice, and must **not** be used to diagnose, monitor, or treat any medical condition.
+>
+> **Electrical Safety:** Ordinary USB does **not** provide medical electrical isolation. While electrodes are attached to the body, run the phone/device on **battery power only** and keep both the phone and microcontroller disconnected from mains-powered chargers, laptops, or desktop computers.
 
-Electrical cardiac biopotentials acquired by an **Analog Devices AD8232** front-end are sampled at **250 Hz** by the ESP microcontroller, streamed over high-speed USB Serial directly into Flutter, filtered and analyzed by an embedded **in-app Dart DSP & Pan-Tompkins QRS detection engine**, and rendered on a 60 FPS medical oscilloscope canvas.
+**FlutBeat** is an experimental, real-time Electrocardiogram (ECG) telemetry and waveform visualization system operating **directly between an ESP microcontroller and a Flutter mobile application via a physical USB-C OTG cable — requiring no backend server, no cloud, and no Wi-Fi network**.
+
+Electrical biopotentials acquired by an **Analog Devices AD8232** front-end are sampled at a nominal **250 Hz** by the ESP microcontroller, streamed over USB Serial directly into Flutter, filtered and analyzed by an embedded **in-app Dart DSP & Pan-Tompkins QRS detection engine**, and rendered on a real-time oscilloscope canvas.
 
 ---
 
@@ -22,7 +28,7 @@ Electrical cardiac biopotentials acquired by an **Analog Devices AD8232** front-
 5. [Einthoven 3-Lead Electrode Placement](#-einthoven-3-lead-electrode-placement)
 6. [In-App Digital Signal Processing (DSP) Pipeline](#-in-app-digital-signal-processing-dsp-pipeline)
 7. [Firmware Setup (WeMos D1 Mini / ESP32)](#-firmware-setup)
-8. [Quickstart: Flutter Clinical Dashboard](#-quickstart-flutter-clinical-dashboard)
+8. [Quickstart: Flutter Dashboard](#-quickstart-flutter-dashboard)
 9. [Repository Structure](#-repository-structure)
 
 ---
@@ -37,12 +43,12 @@ flowchart LR
         AD8232 -- "LO+ / LO-" --> D5D6["ESP Pins D5 & D6\n(GPIO14 & GPIO12 Lead-Off)"]
     end
 
-    subgraph FE["2. Flutter Clinical Dashboard (Direct OTG Connection)"]
-        USB["USB Serial OTG Driver\n(usb_serial @ 115200 baud)\n• Auto device detection (CH340/CP2102/FTDI)\n• Fallback ECG Simulator"]
-        DSP["In-App Dart DSP & Analytics Pipeline\n• DC blocker (~0.32 Hz)\n• 50 Hz Biquad Notch Filter\n• 40 Hz Butterworth Low-Pass\n• Pan-Tompkins QRS R-Peak Detector\n• BPM, R-R, HRV SDNN & RMSSD\n• Experimental Signal Checks"]
+    subgraph FE["2. Flutter Dashboard (Direct OTG Connection)"]
+        USB["USB Serial OTG Driver\n(usb_serial @ 115200 baud)\n• Auto device detection (CH340/CP2102/FTDI)\n• Built-in ECG Simulator"]
+        DSP["In-App Dart DSP & Analytics Pipeline\n• DC blocker (~0.32 Hz)\n• 50 Hz Biquad Notch Filter\n• 40 Hz Butterworth Low-Pass\n• Pan-Tompkins QRS R-Peak Detector\n• BPM, R-R, Exploratory RR SDNN & RMSSD\n• Experimental Signal Checks"]
         RIVERPOD["Riverpod 3.x State Notifier\n& 1250-Point Ring Buffer (5s)"]
-        CANVAS["60 FPS Medical Oscilloscope\n• Standard 1mm/5mm Millimeter Grid\n• 1 mV Calibration Pulse\n• ICU Sweep Mode (Erase-Bar + Cursor)\n• Continuous Left-Scrolling Mode\n• 25 mm/s & 50 mm/s Paper Speeds\n• 5, 10, 20 mm/mV Voltage Gains"]
-        VITALS["Clinical Vitals & Controls\n• Pulsing Heart & BPM Readout\n• Rhythm: Sinus, Brady, Tachy, Arrhythmia\n• R-R Interval, HRV SDNN, RMSSD\n• Live LO+ / LO- Electrode Status\n• Freeze/Resume & CSV Export"]
+        CANVAS["Live ECG Oscilloscope\n• Standard 1mm/5mm Millimeter Grid\n• 1 mV Reference Pulse (Uncalibrated)\n• Sweep Mode (Erase-Bar + Cursor)\n• Continuous Left-Scrolling Mode\n• 25 mm/s & 50 mm/s Paper Speeds\n• 5, 10, 20 mm/mV Voltage Gains"]
+        VITALS["Telemetry & Controls\n• Pulsing Heart & BPM Readout\n• R-R Interval & Exploratory RR Variability\n• Live LO+ / LO- Electrode Status\n• Freeze/Resume, Record & CSV/PDF Export"]
 
         USB --> DSP --> RIVERPOD
         RIVERPOD --> CANVAS
@@ -63,7 +69,7 @@ To build the physical FlutBeat biopotential acquisition node, you will need the 
 | **1** | **Analog Devices AD8232 Breakout** | Single-Lead ECG Front-End Board | Instrumentation amp + Right Leg Drive (RLD) + high/low-pass filters ($\text{Gain} \approx 1100\text{ V/V}$). |
 | **2** | **Microcontroller Board** | **WeMos D1 Mini (ESP8266)** or **ESP32 DevKit** | Samples analog cardiac signal at 250 Hz and streams CSV frames via UART/USB bridge. |
 | **3** | **ECG Biomedical Cable** | 3-Lead Shielded Cable ($3.5\text{ mm}$ audio jack to button snaps) | Connects body electrodes to the AD8232 input jack with minimal electromagnetic induction. |
-| **4** | **ECG Electrode Pads** | Pre-gelled $\text{Ag/AgCl}$ Disposable Electrodes (3 pads) | Medical-grade adhesive hydrogel pads ensuring low skin-contact impedance ($<5\text{ k}\Omega$). |
+| **4** | **ECG Electrode Pads** | Pre-gelled $\text{Ag/AgCl}$ Disposable Electrodes (3 pads) | Adhesive hydrogel pads for low skin-contact impedance. |
 | **5** | **USB-C OTG Cable / Adapter** | USB-C Male to Micro-USB / USB-C Data Cable | Powers the microcontroller directly from the mobile phone ($5\text{V VBUS}$) and carries bidirectional Serial data. |
 | **6** | **Jumper Wires** | Female-to-Female or Male-to-Female DuPont ($10\text{–}15\text{ cm}$) | Interconnects AD8232 breakout header pins to the ESP development board. |
 | **7** | **Breadboard (Optional)** | Mini Solderless Prototype Breadboard ($170\text{–}400$ tie points) | Convenient for stable bench testing and prototyping. |
@@ -201,7 +207,7 @@ The firmware sketch is located at [`firmware/d1_mini_ecg/d1_mini_ecg.ino`](firmw
 
 ---
 
-## 🚀 Quickstart: Flutter Clinical Dashboard
+## 🚀 Quickstart: Flutter Dashboard
 
 ### 1. Requirements
 - Flutter SDK (>= 3.13)
@@ -238,7 +244,7 @@ Use the RA/LA/RL connector labels rather than cable colors. The illustrated uppe
 
 Open a session in the library to view its waveform. Drag to pan, pinch to zoom, change amplitude, switch raw/filtered voltage and tap two points for time/voltage calipers. The viewer reads a bounded window (up to 60 seconds) rather than the entire session. Its Export button opens the CSV/PDF controls.
 
-Signal percentage is now a raw-signal heuristic for flatline, saturation and mains-frequency interference, not a clinical confidence score. Dominant interference suppresses rate estimation; the app no longer labels an unvalidated single channel as normal sinus or arrhythmia. Short/noisy/outlying detected intervals do not yield exploratory RR variability. Even longer segments require verified normal-to-normal intervals for clinical HRV. Absolute voltage uses assumed hardware conversion and is uncalibrated. The unchanged DC blocker's alpha 0.992 corresponds to roughly 0.32 Hz at 250 Hz; new export provenance reflects this.
+Signal percentage is a raw-signal heuristic for flatline, saturation, and mains-frequency interference, not a clinical confidence score. Dominant interference suppresses rate estimation, and the app does not classify an unvalidated single channel as normal sinus rhythm or arrhythmia. Short, noisy, or outlying detected intervals do not yield exploratory RR variability; even longer segments require verified normal-to-normal intervals for clinical HRV. Absolute voltage uses an assumed hardware conversion and is uncalibrated. The DC blocker's $\alpha = 0.992$ corresponds to roughly $0.32\text{ Hz}$ at $250\text{ Hz}$, which is reflected in export provenance.
 
 ## Recording and exporting sessions
 
@@ -273,6 +279,8 @@ flutbeat/
 │   │   ├── main.dart                  # App entry point & Riverpod Scope
 │   │   ├── dashboard.dart             # Export barrel
 │   │   └── src/
+│   │       ├── analysis/              # Raw-signal electrical checks (flatline, saturation, mains)
+│   │       │   └── signal_checks.dart
 │   │       ├── dsp/                   # In-app DSP pipeline, filters & ECG simulator
 │   │       │   ├── ecg_dsp_pipeline.dart
 │   │       │   └── ecg_simulator.dart
@@ -283,9 +291,19 @@ flutbeat/
 │   │       ├── providers/             # Riverpod 3.x telemetry & config state notifiers
 │   │       │   ├── config_provider.dart
 │   │       │   └── telemetry_provider.dart
+│   │       ├── recording/             # Local session storage, viewer, and CSV/PDF export
+│   │       │   ├── file_export_service.dart
+│   │       │   ├── recording_export.dart
+│   │       │   ├── recording_models.dart
+│   │       │   ├── recording_provider.dart
+│   │       │   ├── recording_store.dart
+│   │       │   ├── recording_ui.dart
+│   │       │   └── recording_viewer.dart
 │   │       ├── services/              # USB Serial OTG device manager & parser
 │   │       │   └── usb_serial_service.dart
-│   │       └── ui/                    # Clinical screens & oscilloscope widgets
+│   │       └── ui/                    # Dashboard screens, help & oscilloscope widgets
+│   │           ├── help/
+│   │           │   └── app_help.dart
 │   │           ├── screens/
 │   │           │   ├── dashboard_screen.dart
 │   │           │   └── config_screen.dart
